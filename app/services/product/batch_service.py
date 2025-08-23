@@ -8,11 +8,11 @@ Service untuk mengelola Batch dan QC operations
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date,timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, select, func
 
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, BusinessRuleError, NotFoundError
-from ...models import Batch, Product, Allocation, db
+from ...models import Batch, Product, Allocation
 from ...schemas import BatchSchema, BatchCreateSchema, BatchUpdateSchema
 
 class BatchService(CRUDService):
@@ -31,17 +31,18 @@ class BatchService(CRUDService):
     
     @transactional
     @audit_log('CREATE', 'Batch')
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create new batch with validation"""
         # Validate product exists
         product_id = data.get('product_id')
-        product = self._get_or_404(Product, product_id)
+        product = await self._get_or_404(Product, product_id)
         
         # Validate batch number uniqueness per product
         batch_number = data.get('batch_number')
-        existing_batch = self.db.query(Batch).filter(
+        result = await self.db_session.execute(select(Batch).filter(
             and_(Batch.product_id == product_id, Batch.batch_number == batch_number)
-        ).first()
+        ))
+        existing_batch = result.scalars().first()
         
         if existing_batch:
             raise ValidationError(f"Batch number '{batch_number}' already exists for this product")
@@ -50,10 +51,10 @@ class BatchService(CRUDService):
         self._validate_batch_dates(data)
         
         # Create batch
-        batch_data = super().create(data)
+        batch_data = await super().create(data)
         
         # Send notification for new batch
-        self._send_notification('BATCH_CREATED', ['warehouse_team'], {
+        await self._send_notification('BATCH_CREATED', ['warehouse_team'], {
             'batch_id': batch_data['id'],
             'product_name': product.name,
             'batch_number': batch_number,
@@ -64,12 +65,12 @@ class BatchService(CRUDService):
     
     @transactional
     @audit_log('UPDATE', 'Batch')
-    def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update batch with validation"""
-        batch = self._get_or_404(Batch, entity_id)
+        batch = await self._get_or_404(Batch, entity_id)
         
         # Check if batch has allocations - restrict some updates
-        if self._batch_has_allocations(entity_id):
+        if await self._batch_has_allocations(entity_id):
             restricted_fields = ['product_id', 'batch_number', 'received_quantity']
             for field in restricted_fields:
                 if field in data:
@@ -79,17 +80,17 @@ class BatchService(CRUDService):
         if any(key in data for key in ['manufacturing_date', 'expiry_date', 'received_date']):
             self._validate_batch_dates(data, existing_batch=batch)
         
-        return super().update(entity_id, data)
+        return await super().update(entity_id, data)
     
     @transactional
     @audit_log('QC_UPDATE', 'Batch')
-    def update_qc_status(self, batch_id: int, qc_status: str, qc_notes: str = None) -> Dict[str, Any]:
+    async def update_qc_status(self, batch_id: int, qc_status: str, qc_notes: str = None) -> Dict[str, Any]:
         """Update QC status untuk batch"""
         valid_statuses = ['PENDING', 'PASSED', 'FAILED', 'QUARANTINE']
         if qc_status not in valid_statuses:
             raise ValidationError(f"Invalid QC status. Must be one of: {valid_statuses}")
         
-        batch = self._get_or_404(Batch, batch_id)
+        batch = await self._get_or_404(Batch, batch_id)
         
         # Update QC fields
         batch.qc_status = qc_status
@@ -105,7 +106,7 @@ class BatchService(CRUDService):
             batch.status = 'RECALLED'
             
             # Notify relevant teams
-            self._send_notification('BATCH_QC_FAILED', ['quality_team', 'warehouse_team'], {
+            await self._send_notification('BATCH_QC_FAILED', ['quality_team', 'warehouse_team'], {
                 'batch_id': batch_id,
                 'batch_number': batch.batch_number,
                 'qc_notes': qc_notes
@@ -113,7 +114,7 @@ class BatchService(CRUDService):
         
         elif qc_status == 'PASSED':
             # Batch ready for allocation
-            self._send_notification('BATCH_QC_PASSED', ['warehouse_team'], {
+            await self._send_notification('BATCH_QC_PASSED', ['warehouse_team'], {
                 'batch_id': batch_id,
                 'batch_number': batch.batch_number,
                 'received_quantity': batch.received_quantity
@@ -121,11 +122,11 @@ class BatchService(CRUDService):
         
         return self.response_schema().dump(batch)
     
-    def get_expiring_batches(self, days_ahead: int = 30) -> List[Dict[str, Any]]:
+    async def get_expiring_batches(self, days_ahead: int = 30) -> List[Dict[str, Any]]:
         """Get batches yang akan expire dalam days_ahead"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(Batch).filter(
+        query = select(Batch).filter(
             and_(
                 Batch.expiry_date <= cutoff_date,
                 Batch.expiry_date >= date.today(),
@@ -134,34 +135,36 @@ class BatchService(CRUDService):
             )
         ).order_by(Batch.expiry_date.asc())
         
-        batches = query.all()
+        result = await self.db_session.execute(query)
+        batches = result.scalars().all()
         return self.response_schema(many=True).dump(batches)
     
-    def get_batches_by_product(self, product_id: int, include_consumed: bool = False) -> List[Dict[str, Any]]:
+    async def get_batches_by_product(self, product_id: int, include_consumed: bool = False) -> List[Dict[str, Any]]:
         """Get all batches untuk specific product"""
-        query = self.db.query(Batch).filter(Batch.product_id == product_id)
+        query = select(Batch).filter(Batch.product_id == product_id)
         
         if not include_consumed:
             query = query.filter(Batch.status != 'CONSUMED')
         
         query = query.order_by(Batch.received_date.desc())
         
-        batches = query.all()
+        result = await self.db_session.execute(query)
+        batches = result.scalars().all()
         return self.response_schema(many=True).dump(batches)
     
-    def get_available_batches_for_allocation(self, product_id: int, 
+    async def get_available_batches_for_allocation(self, product_id: int, 
                                            min_quantity: int = None) -> List[Dict[str, Any]]:
         """Get batches yang available untuk allocation"""
         from ...models import Allocation
         
         # Subquery untuk menghitung allocated quantity per batch
-        allocated_subquery = self.db.query(
+        allocated_subquery = select(
             Allocation.batch_id,
-            db.func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity).label('allocated_qty')
+            func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity).label('allocated_qty')
         ).filter(Allocation.status == 'active').group_by(Allocation.batch_id).subquery()
         
         # Main query
-        query = self.db.query(Batch).outerjoin(
+        query = select(Batch).outerjoin(
             allocated_subquery, Batch.id == allocated_subquery.c.batch_id
         ).filter(
             and_(
@@ -175,30 +178,32 @@ class BatchService(CRUDService):
         if min_quantity:
             query = query.filter(
                 (Batch.received_quantity - 
-                 db.func.coalesce(allocated_subquery.c.allocated_qty, 0)) >= min_quantity
+                 func.coalesce(allocated_subquery.c.allocated_qty, 0)) >= min_quantity
             )
         
         # Order by FEFO (First Expired, First Out)
         query = query.order_by(Batch.expiry_date.asc(), Batch.received_date.asc())
         
-        batches = query.all()
+        result = await self.db_session.execute(query)
+        batches = result.scalars().all()
         
         # Calculate available quantity for each batch
-        result = []
+        result_data = []
         for batch in batches:
             batch_data = self.response_schema().dump(batch)
             
             # Calculate available quantity
-            total_allocated = self.db.query(
-                db.func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)
-            ).filter(
-                and_(Allocation.batch_id == batch.id, Allocation.status == 'active')
-            ).scalar() or 0
+            total_allocated_result = await self.db_session.execute(
+                select(func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)).filter(
+                    and_(Allocation.batch_id == batch.id, Allocation.status == 'active')
+                )
+            )
+            total_allocated = total_allocated_result.scalar() or 0
             
             batch_data['available_quantity'] = batch.received_quantity - total_allocated
-            result.append(batch_data)
+            result_data.append(batch_data)
         
-        return result
+        return result_data
     
     def _validate_batch_dates(self, data: Dict[str, Any], existing_batch: Batch = None):
         """Validate batch date relationships"""
@@ -221,8 +226,11 @@ class BatchService(CRUDService):
         if manufacturing_date and received_date and manufacturing_date > received_date:
             raise ValidationError("Manufacturing date cannot be after received date")
     
-    def _batch_has_allocations(self, batch_id: int) -> bool:
+    async def _batch_has_allocations(self, batch_id: int) -> bool:
         """Check if batch has any allocations"""
-        return self.db.query(Allocation).filter(
-            and_(Allocation.batch_id == batch_id, Allocation.status == 'active')
-        ).count() > 0
+        result = await self.db_session.execute(
+            select(func.count(Allocation.id)).filter(
+                and_(Allocation.batch_id == batch_id, Allocation.status == 'active')
+            )
+        )
+        return result.scalar() > 0

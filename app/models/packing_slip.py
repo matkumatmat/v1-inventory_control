@@ -1,42 +1,45 @@
-from app.models.base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, Date,
+    func
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 
 class PackingSlip(BaseModel):
     """Model untuk PS (Packing Slip) dari ERP - sebagai grouping dokumen"""
     __tablename__ = 'packing_slips'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
     
     # PS details dari ERP
-    ps_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    ps_date = db.Column(db.Date, nullable=False)
+    ps_number = Column(String(50), unique=True, nullable=False, index=True)
+    ps_date = Column(Date, nullable=False)
     
     # DO details (optional - kadang ada kadang tidak)
-    do_number = db.Column(db.String(50), nullable=True, index=True)
-    do_date = db.Column(db.Date, nullable=True)
-    do_document_url = db.Column(db.String(255))
+    do_number = Column(String(50), nullable=True, index=True)
+    do_date = Column(Date, nullable=True)
+    do_document_url = Column(String(255))
     
     # ERP Integration
-    erp_ps_id = db.Column(db.String(50))
-    erp_do_id = db.Column(db.String(50))
-    erp_sync_date = db.Column(db.DateTime)
+    erp_ps_id = Column(String(50))
+    erp_do_id = Column(String(50))
+    erp_sync_date = Column(DateTime)
     
     # Status
-    status = db.Column(db.String(20), default='PENDING')
+    status = Column(String(20), default='PENDING')
     
     # Document references
-    ps_document_url = db.Column(db.String(255))
+    ps_document_url = Column(String(255))
     
     # Tracking
-    created_by = db.Column(db.String(50))
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    created_by = Column(String(50))
+    created_date = Column(DateTime, default=func.current_timestamp())
     
     # Relationships - PS bisa berisi multiple SO dan multiple PL
-    sales_orders = db.relationship('SalesOrder', back_populates='packing_slip')
-    picking_lists = db.relationship('PickingList', back_populates='packing_slip')
-    shipments = db.relationship('Shipment', back_populates='packing_slip')
+    sales_orders = relationship('SalesOrder', back_populates='packing_slip')
+    picking_lists = relationship('PickingList', back_populates='packing_slip')
+    shipments = relationship('Shipment', back_populates='packing_slip')
     
     @property
     def total_sales_orders(self):

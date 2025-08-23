@@ -1,71 +1,74 @@
-from app.models.base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 import bcrypt
 from datetime import datetime, timedelta
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, Date, Numeric, Boolean,
+    func, JSON
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(BaseModel):
     """Enhanced User model dengan proper security dan role management"""
     __tablename__ = 'users'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
     
     # Authentication credentials
-    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(100), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(100), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
     
     # User information
-    user_id = db.Column(db.String(20), unique=True, nullable=False, index=True)  # Employee ID
-    first_name = db.Column(db.String(50), nullable=False)
-    last_name = db.Column(db.String(50), nullable=False)
-    full_name = db.Column(db.String(100))
+    user_id = Column(String(20), unique=True, nullable=False, index=True)  # Employee ID
+    first_name = Column(String(50), nullable=False)
+    last_name = Column(String(50), nullable=False)
+    full_name = Column(String(100))
     
     # Contact information
-    phone = db.Column(db.String(20))
-    emergency_contact = db.Column(db.String(100))
+    phone = Column(String(20))
+    emergency_contact = Column(String(100))
     
     # Role and permissions
-    role = db.Column(db.String(20), nullable=False, default='admin')  # superadmin, admin
-    department = db.Column(db.String(50))  # WAREHOUSE, SALES, ADMIN, FINANCE
-    position = db.Column(db.String(50))
+    role = Column(String(20), nullable=False, default='admin')  # superadmin, admin
+    department = Column(String(50))  # WAREHOUSE, SALES, ADMIN, FINANCE
+    position = Column(String(50))
     
     # Access control
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    is_verified = db.Column(db.Boolean, default=False)
-    is_locked = db.Column(db.Boolean, default=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_verified = Column(Boolean, default=False)
+    is_locked = Column(Boolean, default=False)
     
     # Password policy
-    password_expires_at = db.Column(db.DateTime)
-    must_change_password = db.Column(db.Boolean, default=True)
-    failed_login_attempts = db.Column(db.Integer, default=0)
-    locked_until = db.Column(db.DateTime)
+    password_expires_at = Column(DateTime)
+    must_change_password = Column(Boolean, default=True)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime)
     
     # Session tracking
-    last_login = db.Column(db.DateTime)
-    last_login_ip = db.Column(db.String(45))
-    current_session_id = db.Column(db.String(64))
-    session_expires_at = db.Column(db.DateTime)
+    last_login = Column(DateTime)
+    last_login_ip = Column(String(45))
+    current_session_id = Column(String(64))
+    session_expires_at = Column(DateTime)
     
     # Settings and preferences
-    timezone = db.Column(db.String(50), default='Asia/Jakarta')
-    language = db.Column(db.String(5), default='id')
-    date_format = db.Column(db.String(20), default='DD/MM/YYYY')
+    timezone = Column(String(50), default='Asia/Jakarta')
+    language = Column(String(5), default='id')
+    date_format = Column(String(20), default='DD/MM/YYYY')
     
     # Warehouse access (untuk admin yang terbatas pada warehouse tertentu)
-    assigned_warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=True)
-    assigned_warehouse = db.relationship('Warehouse')
+    assigned_warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=True)
     
     # Creation and modification tracking
-    created_by = db.Column(db.String(50))
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    last_modified_by = db.Column(db.String(50))
-    last_modified_date = db.Column(db.DateTime, onupdate=db.func.current_timestamp())
+    created_by = Column(String(50))
+    created_date = Column(DateTime, default=func.current_timestamp())
+    last_modified_by = Column(String(50))
+    last_modified_date = Column(DateTime, onupdate=func.current_timestamp())
     
     # Relationships
-    audit_logs = db.relationship('AuditLog', back_populates='user')
+    assigned_warehouse = relationship('Warehouse')
+    audit_logs = relationship('AuditLog', back_populates='user')
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -249,25 +252,24 @@ class UserSession(BaseModel):
     """Model untuk tracking user sessions"""
     __tablename__ = 'user_sessions'
     
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    session_id = Column(String(64), unique=True, nullable=False, index=True)
     
     # User reference
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    user = db.relationship('User')
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user = relationship('User')
     
     # Session details
-    ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.String(255))
+    ip_address = Column(String(45))
+    user_agent = Column(String(255))
     
     # Timing
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    last_activity = db.Column(db.DateTime, default=db.func.current_timestamp())
-    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = Column(DateTime, default=func.current_timestamp())
+    last_activity = Column(DateTime, default=func.current_timestamp())
+    expires_at = Column(DateTime, nullable=False)
     
     # Status
-    is_active = db.Column(db.Boolean, default=True)
-    logout_reason = db.Column(db.String(50))  # MANUAL, TIMEOUT, FORCED, SECURITY
+    is_active = Column(Boolean, default=True)
+    logout_reason = Column(String(50))  # MANUAL, TIMEOUT, FORCED, SECURITY
     
     def is_expired(self):
         """Check if session is expired"""
@@ -290,27 +292,25 @@ class UserActivity(BaseModel):
     """Model untuk tracking user activities"""
     __tablename__ = 'user_activities'
     
-    id = db.Column(db.Integer, primary_key=True)
-    
     # User reference
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    user = db.relationship('User')
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user = relationship('User')
     
     # Activity details
-    activity_type = db.Column(db.String(50), nullable=False, index=True)  # LOGIN, LOGOUT, CREATE, UPDATE, DELETE, VIEW
-    entity_type = db.Column(db.String(50), index=True)  # SalesOrder, Product, etc.
-    entity_id = db.Column(db.Integer)
+    activity_type = Column(String(50), nullable=False, index=True)  # LOGIN, LOGOUT, CREATE, UPDATE, DELETE, VIEW
+    entity_type = Column(String(50), index=True)  # SalesOrder, Product, etc.
+    entity_id = Column(Integer)
     
     # Context
-    description = db.Column(db.Text)
-    ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.String(255))
+    description = Column(Text)
+    ip_address = Column(String(45))
+    user_agent = Column(String(255))
     
     # Additional data
-    additional_data = db.Column(db.JSON)
+    additional_data = Column(JSON)
     
     # Timing
-    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp(), index=True)
+    timestamp = Column(DateTime, default=func.current_timestamp(), index=True)
     
     def __repr__(self):
         return f'<UserActivity {self.user.username}: {self.activity_type}>'

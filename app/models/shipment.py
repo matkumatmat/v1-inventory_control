@@ -1,98 +1,100 @@
 # app/models/shipment.py
 # Model untuk Shipment yang mengikuti flow Picking → Packing → Shipment
 
-from app.models.base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
-from sqlalchemy import Numeric
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, Date, Numeric, Boolean,
+    Float, func
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 
 
 class Shipment(BaseModel):
     """Model untuk Shipment final setelah proses packing selesai"""
     __tablename__ = 'shipments'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    shipment_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    shipment_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Reference ke shipping plan yang jadi dasar shipment
-    shipping_plan_id = db.Column(db.Integer, db.ForeignKey('shipping_plans.id'), nullable=False)
-    shipping_plan = db.relationship('ShippingPlan', back_populates='shipment')
+    shipping_plan_id = Column(Integer, ForeignKey('shipping_plans.id'), nullable=False)
     
     # Customer info (dari shipping plan, tapi dicopy untuk kemudahan)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
-    customer = db.relationship('Customer')
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
     
     # Shipping details
-    tracking_number = db.Column(db.String(100), unique=True, nullable=True, index=True)
-    carrier = db.Column(db.String(100))
-    shipping_method = db.Column(db.String(50))  # Express, Regular, Economy
+    tracking_number = Column(String(100), unique=True, nullable=True, index=True)
+    carrier = Column(String(100))
+    shipping_method = Column(String(50))  # Express, Regular, Economy
     
     # Dates
-    shipment_date = db.Column(db.Date)
-    estimated_delivery_date = db.Column(db.Date)
-    actual_delivery_date = db.Column(db.Date)
+    shipment_date = Column(Date)
+    estimated_delivery_date = Column(Date)
+    actual_delivery_date = Column(Date)
     
     # Status tracking
-    status = db.Column(db.String(50), default='PREPARING', nullable=False)
+    status = Column(String(50), default='PREPARING', nullable=False)
     # PREPARING, READY_TO_SHIP, SHIPPED, IN_TRANSIT, DELIVERED, CANCELLED, RETURNED
     
     # Address information
-    delivery_address = db.Column(db.Text)
-    pickup_address = db.Column(db.Text)
-    contact_person = db.Column(db.String(100))
-    contact_phone = db.Column(db.String(20))
-    contact_email = db.Column(db.String(100))
+    delivery_address = Column(Text)
+    pickup_address = Column(Text)
+    contact_person = Column(String(100))
+    contact_phone = Column(String(20))
+    contact_email = Column(String(100))
     
     # Package information
-    total_weight = db.Column(db.Float)  # Total weight in kg
-    total_volume = db.Column(db.Float)  # Total volume in m3
-    total_boxes = db.Column(db.Integer, default=0)
+    total_weight = Column(Float)  # Total weight in kg
+    total_volume = Column(Float)  # Total volume in m3
+    total_boxes = Column(Integer, default=0)
     
     # Cost information
-    shipping_cost = db.Column(db.Numeric(12, 2))
-    insurance_cost = db.Column(db.Numeric(12, 2))
-    total_value = db.Column(db.Numeric(15, 2))  # Total value of goods
+    shipping_cost = Column(Numeric(12, 2))
+    insurance_cost = Column(Numeric(12, 2))
+    total_value = Column(Numeric(15, 2))  # Total value of goods
     
     # Tracking
-    created_by = db.Column(db.String(50))  # User yang create shipment
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    shipped_by = db.Column(db.String(50))  # User yang confirm shipping
-    shipped_date = db.Column(db.DateTime)
+    created_by = Column(String(50))  # User yang create shipment
+    created_date = Column(DateTime, default=func.current_timestamp())
+    shipped_by = Column(String(50))  # User yang confirm shipping
+    shipped_date = Column(DateTime)
     
     # Special instructions
-    delivery_instructions = db.Column(db.Text)
-    handling_instructions = db.Column(db.Text)
-    notes = db.Column(db.Text)
+    delivery_instructions = Column(Text)
+    handling_instructions = Column(Text)
+    notes = Column(Text)
     
     # External references
-    courier_booking_id = db.Column(db.String(100))  # ID booking di sistem courier
-    pod_document_url = db.Column(db.String(255))  # Proof of Delivery document
+    courier_booking_id = Column(String(100))  # ID booking di sistem courier
+    pod_document_url = Column(String(255))  # Proof of Delivery document
     
     # Relationships
-    picking_orders = db.relationship('PickingOrder', back_populates='shipment')
-    documents = db.relationship('ShipmentDocument', back_populates='shipment', cascade='all, delete-orphan')
-    tracking_events = db.relationship('ShipmentTracking', back_populates='shipment', cascade='all, delete-orphan')
-    consignments = db.relationship('Consignment', back_populates='shipment')
+    shipping_plan = relationship('ShippingPlan', back_populates='shipment')
+    customer = relationship('Customer')
+    picking_orders = relationship('PickingOrder', back_populates='shipment')
+    documents = relationship('ShipmentDocument', back_populates='shipment', cascade='all, delete-orphan')
+    tracking_events = relationship('ShipmentTracking', back_populates='shipment', cascade='all, delete-orphan')
+    consignments = relationship('Consignment', back_populates='shipment')
 
     # ENHANCED: PS reference (main reference untuk shipment)
-    packing_slip_id = db.Column(db.Integer, db.ForeignKey('packing_slips.id'), nullable=False)
-    packing_slip = db.relationship('PackingSlip', back_populates='shipments')
+    packing_slip_id = Column(Integer, ForeignKey('packing_slips.id'), nullable=False)
+    packing_slip = relationship('PackingSlip', back_populates='shipments')
     
     # ENHANCED: Flexible delivery address
     # Option 1: Use customer address
-    delivery_address_id = db.Column(db.Integer, db.ForeignKey('customer_addresses.id'), nullable=True)
-    delivery_address = db.relationship('CustomerAddress', back_populates='shipments')
+    delivery_address_id = Column(Integer, ForeignKey('customer_addresses.id'), nullable=True)
+    delivery_address = relationship('CustomerAddress', back_populates='shipments')
     
     # Option 2: Custom delivery address (override customer address)
-    custom_delivery_address = db.Column(db.Text, nullable=True)
-    custom_contact_person = db.Column(db.String(100))
-    custom_contact_phone = db.Column(db.String(20))
-    custom_delivery_instructions = db.Column(db.Text)
+    custom_delivery_address = Column(Text, nullable=True)
+    custom_contact_person = Column(String(100))
+    custom_contact_phone = Column(String(20))
+    custom_delivery_instructions = Column(Text)
     
     # Flag to determine which address to use
-    use_custom_address = db.Column(db.Boolean, default=False)
+    use_custom_address = Column(Boolean, default=False)
     
     # Properties untuk final delivery info
     @property
@@ -181,22 +183,21 @@ class ShipmentDocument(BaseModel):
     """Model untuk dokumen-dokumen yang terkait dengan shipment"""
     __tablename__ = 'shipment_documents'
     
-    id = db.Column(db.Integer, primary_key=True)
-    document_type_id = db.Column(db.Integer, db.ForeignKey('document_types.id'), nullable=False)
-    document_type = db.relationship('DocumentType', back_populates='shipment_documents')
+    document_type_id = Column(Integer, ForeignKey('document_types.id'), nullable=False)
+    document_type = relationship('DocumentType', back_populates='shipment_documents')
 
-    document_number = db.Column(db.String(100))
-    document_url = db.Column(db.String(255))
-    file_name = db.Column(db.String(255))
-    file_size = db.Column(db.Integer)  # in bytes
+    document_number = Column(String(100))
+    document_url = Column(String(255))
+    file_name = Column(String(255))
+    file_size = Column(Integer)  # in bytes
     
     # Reference
-    shipment_id = db.Column(db.Integer, db.ForeignKey('shipments.id'), nullable=False)
-    shipment = db.relationship('Shipment', back_populates='documents')
+    shipment_id = Column(Integer, ForeignKey('shipments.id'), nullable=False)
+    shipment = relationship('Shipment', back_populates='documents')
     
     # Tracking
-    uploaded_by = db.Column(db.String(50))
-    uploaded_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    uploaded_by = Column(String(50))
+    uploaded_date = Column(DateTime, default=func.current_timestamp())
     
     def __repr__(self):
         return f'<ShipmentDocument {self.document_type} - {self.shipment.shipment_number}>'
@@ -205,23 +206,22 @@ class ShipmentTracking(BaseModel):
     """Model untuk tracking events dalam shipment"""
     __tablename__ = 'shipment_tracking'
     
-    id = db.Column(db.Integer, primary_key=True)
-    event_type = db.Column(db.String(50), nullable=False)  # CREATED, SHIPPED, IN_TRANSIT, DELIVERED, etc
-    event_description = db.Column(db.Text)
-    event_location = db.Column(db.String(100))
-    event_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    event_type = Column(String(50), nullable=False)  # CREATED, SHIPPED, IN_TRANSIT, DELIVERED, etc
+    event_description = Column(Text)
+    event_location = Column(String(100))
+    event_date = Column(DateTime, default=func.current_timestamp())
     
     # Reference
-    shipment_id = db.Column(db.Integer, db.ForeignKey('shipments.id'), nullable=False)
-    shipment = db.relationship('Shipment', back_populates='tracking_events')
+    shipment_id = Column(Integer, ForeignKey('shipments.id'), nullable=False)
+    shipment = relationship('Shipment', back_populates='tracking_events')
     
     # External tracking (dari courier)
-    external_tracking_id = db.Column(db.String(100))
-    courier_status = db.Column(db.String(100))
+    external_tracking_id = Column(String(100))
+    courier_status = Column(String(100))
     
     # Internal tracking
-    created_by = db.Column(db.String(50))
-    is_customer_visible = db.Column(db.Boolean, default=True)
+    created_by = Column(String(50))
+    is_customer_visible = Column(Boolean, default=True)
     
     def __repr__(self):
         return f'<ShipmentTracking {self.event_type} - {self.shipment.shipment_number}>'
@@ -242,13 +242,12 @@ class DeliveryMethod(BaseModel):
     """Master data untuk metode pengiriman"""
     __tablename__ = 'delivery_methods'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)  # Express, Regular, Economy
-    description = db.Column(db.Text)
-    estimated_days = db.Column(db.Integer)  # Estimasi hari pengiriman
-    cost_per_kg = db.Column(db.Numeric(10, 2))
-    cost_per_km = db.Column(db.Numeric(10, 2))
-    is_active = db.Column(db.Boolean, default=True)
+    name = Column(String(100), unique=True, nullable=False)  # Express, Regular, Economy
+    description = Column(Text)
+    estimated_days = Column(Integer)  # Estimasi hari pengiriman
+    cost_per_kg = Column(Numeric(10, 2))
+    cost_per_km = Column(Numeric(10, 2))
+    is_active = Column(Boolean, default=True)
     
     def __repr__(self):
         return f'<DeliveryMethod {self.name}>'
@@ -257,15 +256,14 @@ class Carrier(BaseModel):
     """Master data untuk kurir/carrier"""
     __tablename__ = 'carriers'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)  # JNE, TIKI, JNT, etc    
-    code = db.Column(db.String(10), unique=True, nullable=False)
-    contact_info = db.Column(db.Text)
-    carrier_type_id = db.Column(db.Integer, db.ForeignKey('carrier_types.id'), nullable=False)
-    carrier_type = db.relationship('CarrierType', back_populates='carriers')
-    api_endpoint = db.Column(db.String(255))  # Untuk integrasi API
-    api_key = db.Column(db.String(255))
-    is_active = db.Column(db.Boolean, default=True)
+    name = Column(String(100), unique=True, nullable=False)  # JNE, TIKI, JNT, etc    
+    code = Column(String(10), unique=True, nullable=False)
+    contact_info = Column(Text)
+    carrier_type_id = Column(Integer, ForeignKey('carrier_types.id'), nullable=False)
+    carrier_type = relationship('CarrierType', back_populates='carriers')
+    api_endpoint = Column(String(255))  # Untuk integrasi API
+    api_key = Column(String(255))
+    is_active = Column(Boolean, default=True)
     
     def __repr__(self):
         return f'<Carrier {self.name}>'

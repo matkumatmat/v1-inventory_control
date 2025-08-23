@@ -1,126 +1,141 @@
-from fastapi import APIRouter, Depends, status, Query, Body
-from typing import List, Optional, Dict, Any
-from datetime import date
+"""
+WMS Application Factory
+=======================
 
-from app import APIResponse, get_service_registry
-from app.services import ServiceRegistry
-from app.schemas.shipment import ShipmentSchema
+Pusat perakitan aplikasi FastAPI menggunakan Application Factory Pattern.
+"""
 
-shipment_router = APIRouter()
+from fastapi import FastAPI, Depends, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+import time
+import uuid
+from typing import Optional
 
-@shipment_router.post(
-    "/",
-    response_model=APIResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new shipment from a packing slip"
+# Import semua router dari modulnya masing-masing
+from .routes.auth import auth_router, user_router
+from .routes.product import product_router, batch_router, allocation_router
+
+# Import services dan dependencies
+from .services import ServiceRegistry, create_service_registry
+from .services.exceptions import (
+    ValidationError, NotFoundError, BusinessRuleError, 
+    AuthenticationError, AuthorizationError
 )
-def create_shipment(
-    packing_slip_id: int = Body(..., embed=True),
-    carrier_id: int = Body(..., embed=True),
-    delivery_method_id: int = Body(..., embed=True),
-    additional_data: Optional[Dict[str, Any]] = Body(None),
-    services: ServiceRegistry = Depends(get_service_registry)
-):
-    """
-    Create a new shipment from a 'FINALIZED' packing slip.
-    """
-    new_shipment = services.shipment.create_from_packing_slip(
-        packing_slip_id, carrier_id, delivery_method_id, additional_data
+from .database import get_db_session
+from .config import settings
+
+# Security (Bisa ditaruh di sini atau di dalam create_app)
+security = HTTPBearer()
+
+def setup_middleware(app: FastAPI):
+    """Setup semua middleware aplikasi."""
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["*"],
     )
-    return APIResponse.success(data=new_shipment, message="Shipment created successfully")
-
-@shipment_router.get(
-    "/",
-    response_model=APIResponse,
-    summary="Get a list of shipments"
-)
-def get_all_shipments(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    status: Optional[str] = Query(None),
-    carrier_id: Optional[int] = Query(None),
-    services: ServiceRegistry = Depends(get_service_registry)
-):
-    """
-    Get a paginated list of shipments.
-    """
-    filters = {}
-    if status:
-        filters['status'] = status
-    if carrier_id:
-        filters['carrier_id'] = carrier_id
-
-    shipments, total = services.shipment.get_paginated(
-        page=page,
-        per_page=per_page,
-        filters=filters
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS
     )
-    return APIResponse.paginated(data=shipments, total=total, page=page, per_page=per_page)
 
-@shipment_router.get(
-    "/{shipment_id}",
-    response_model=APIResponse,
-    summary="Get a single shipment"
-)
-def get_shipment_by_id(
-    shipment_id: int,
-    services: ServiceRegistry = Depends(get_service_registry)
-):
-    """
-    Retrieve the details of a single shipment.
-    """
-    shipment = services.shipment.get(shipment_id)
-    return APIResponse.success(data=shipment)
+    @app.middleware("http")
+    async def add_request_id_and_process_time(request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        start_time = time.time()
+        
+        request.state.request_id = request_id
+        response = await call_next(request)
+        
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = str(process_time)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
-@shipment_router.post(
-    "/{shipment_id}/dispatch",
-    response_model=APIResponse,
-    summary="Dispatch a shipment"
-)
-def dispatch_shipment(
-    shipment_id: int,
-    tracking_number: Optional[str] = Body(None, embed=True),
-    estimated_delivery_date: Optional[date] = Body(None, embed=True),
-    driver_info: Optional[Dict[str, Any]] = Body(None),
-    services: ServiceRegistry = Depends(get_service_registry)
-):
+def setup_exception_handlers(app: FastAPI):
+    """Setup semua custom exception handlers."""
+    # (Semua @app.exception_handler(...) dari file lama lo ditaruh di sini)
+    @app.exception_handler(ValidationError)
+    async def validation_exception_handler(request: Request, exc: ValidationError):
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": "Validation Error", "message": str(exc)})
+    
+    @app.exception_handler(NotFoundError)
+    async def not_found_exception_handler(request: Request, exc: NotFoundError):
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not Found", "message": str(exc)})
+    
+    @app.exception_handler(BusinessRuleError)
+    async def business_rule_exception_handler(request: Request, exc: BusinessRuleError):
+        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"error": "Business Rule Violation", "message": str(exc)})
+
+    @app.exception_handler(AuthenticationError)
+    async def authentication_exception_handler(request: Request, exc: AuthenticationError):
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"error": "Authentication Error", "message": str(exc)})
+
+    @app.exception_handler(AuthorizationError)
+    async def authorization_exception_handler(request: Request, exc: AuthorizationError):
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "Authorization Error", "message": str(exc)})
+        
+    @app.exception_handler(Exception)
+    async def general_exception_handler(request: Request, exc: Exception):
+        # Di production, sebaiknya log error ini
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"error": "Internal Server Error", "message": "An unexpected error occurred"})
+
+def setup_routes(app: FastAPI):
+    """Daftarkan (include) semua router ke aplikasi."""
+    # Endpoint sistem
+    @app.get("/health", tags=["System"])
+    async def health_check():
+        return {"status": "healthy", "timestamp": time.time()}
+
+    @app.get("/", tags=["System"])
+    async def root():
+        return {"message": "WMS API", "version": "1.0.0", "docs": "/docs"}
+
+    # Daftarkan semua router dari modul
+    app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+    app.include_router(user_router, prefix="/api/users", tags=["User Management"])
+    app.include_router(product_router, prefix="/api/products", tags=["Products"])
+    app.include_router(batch_router, prefix="/api/batches", tags=["Batches"])
+    app.include_router(allocation_router, prefix="/api/allocations", tags=["Allocations"])
+
+def create_app() -> FastAPI:
     """
-    Dispatch a 'PENDING' shipment, marking it as in-transit.
-    This is where the carrier tracking number is associated.
+    Application Factory: Membuat dan mengkonfigurasi instance FastAPI.
     """
-    dispatched_shipment = services.shipment.dispatch_shipment(
-        shipment_id, tracking_number, estimated_delivery_date, driver_info
+    
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Kode yang dijalankan saat startup
+        print("🚀 WMS API Starting up...")
+        yield
+        # Kode yang dijalankan saat shutdown
+        print("⛔ WMS API Shutting down...")
+    
+    # 1. Buat instance FastAPI
+    app = FastAPI(
+        title="Warehouse Management System API",
+        description="Complete WMS API untuk Pharmaceutical Supply Chain",
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url="/docs",
+        redoc_url="/redoc"
     )
-    return APIResponse.success(data=dispatched_shipment, message="Shipment has been dispatched")
-
-@shipment_router.post(
-    "/{shipment_id}/confirm-delivery",
-    response_model=APIResponse,
-    summary="Confirm delivery of a shipment"
-)
-def confirm_shipment_delivery(
-    shipment_id: int,
-    delivery_confirmation: Dict[str, Any] = Body(...),
-    services: ServiceRegistry = Depends(get_service_registry)
-):
-    """
-    Mark a shipment as 'DELIVERED'.
-    """
-    delivered_shipment = services.shipment.confirm_delivery(shipment_id, delivery_confirmation)
-    return APIResponse.success(data=delivered_shipment, message="Shipment marked as delivered")
-
-@shipment_router.post(
-    "/{shipment_id}/cancel",
-    response_model=APIResponse,
-    summary="Cancel a shipment"
-)
-def cancel_shipment(
-    shipment_id: int,
-    reason: str = Body(..., embed=True),
-    services: ServiceRegistry = Depends(get_service_registry)
-):
-    """
-    Cancel a shipment that has not yet been delivered.
-    """
-    cancelled_shipment = services.shipment.cancel_shipment(shipment_id, reason)
-    return APIResponse.success(data=cancelled_shipment, message="Shipment has been cancelled")
+    
+    # 2. Setup Middleware
+    setup_middleware(app)
+    
+    # 3. Setup Exception Handlers
+    setup_exception_handlers(app)
+    
+    # 4. Setup Routes (Blueprints)
+    setup_routes(app)
+    
+    print("✅ FastAPI app created and configured successfully.")
+    return app

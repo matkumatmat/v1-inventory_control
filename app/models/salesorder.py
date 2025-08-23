@@ -1,60 +1,62 @@
 # app/models/salesorder.py
 # Model lengkap untuk Sales Order dan Shipping Plan sesuai flow kerja
 
-from .base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID 
 import uuid
 from datetime import datetime
-from sqlalchemy import Numeric
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, Date, Numeric, Boolean,
+    func
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 
 class SalesOrder(BaseModel):
     """Model untuk Sales Order yang diinput manual dari ERP"""
     __tablename__ = 'sales_orders'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    so_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    so_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Customer information
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
-    customer = db.relationship('Customer', back_populates='sales_orders')
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    customer = relationship('Customer', back_populates='sales_orders')
     
     # SO Details
-    so_date = db.Column(db.Date, nullable=False)
-    delivery_date = db.Column(db.Date)
-    total_amount = db.Column(db.Numeric(15, 2))
-    currency = db.Column(db.String(3), default='IDR')
+    so_date = Column(Date, nullable=False)
+    delivery_date = Column(Date)
+    total_amount = Column(Numeric(15, 2))
+    currency = Column(String(3), default='IDR')
     
     # Status tracking
-    status = db.Column(db.String(50), default='PENDING', nullable=False)  
+    status = Column(String(50), default='PENDING', nullable=False)  
     # PENDING, CONFIRMED, PARTIALLY_PLANNED, FULLY_PLANNED, COMPLETED, CANCELLED
     
     # ERP Integration
-    erp_so_id = db.Column(db.String(50))  # ID dari ERP pusat
-    erp_sync_date = db.Column(db.DateTime)
+    erp_so_id = Column(String(50))  # ID dari ERP pusat
+    erp_sync_date = Column(DateTime)
     
     # Manual input tracking
-    input_by = db.Column(db.String(50))  # User yang input manual
-    input_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    input_by = Column(String(50))  # User yang input manual
+    input_date = Column(DateTime, default=func.current_timestamp())
     
     # Notes
-    notes = db.Column(db.Text)
-    special_instructions = db.Column(db.Text)
+    notes = Column(Text)
+    special_instructions = Column(Text)
     
     # Relationships
-    items = db.relationship('SalesOrderItem', back_populates='sales_order', cascade='all, delete-orphan')
-    shipping_plans = db.relationship('ShippingPlan', back_populates='sales_order')
+    items = relationship('SalesOrderItem', back_populates='sales_order', cascade='all, delete-orphan')
+    shipping_plans = relationship('ShippingPlan', back_populates='sales_order')
 
     # TAMBAHAN: Contract reference untuk tender SO
-    tender_contract_id = db.Column(db.Integer, db.ForeignKey('tender_contracts.id'), nullable=True)
-    tender_contract = db.relationship('TenderContract', back_populates='sales_orders')
+    tender_contract_id = Column(Integer, ForeignKey('tender_contracts.id'), nullable=True)
+    tender_contract = relationship('TenderContract', back_populates='sales_orders')
     
     # TAMBAHAN: PS reference
-    packing_slip_id = db.Column(db.Integer, db.ForeignKey('packing_slips.id'), nullable=True)
-    packing_slip = db.relationship('PackingSlip', back_populates='sales_orders')
+    packing_slip_id = Column(Integer, ForeignKey('packing_slips.id'), nullable=True)
+    packing_slip = relationship('PackingSlip', back_populates='sales_orders')
     
     # Flag untuk tipe SO
-    is_tender_so = db.Column(db.Boolean, default=False)
+    is_tender_so = Column(Boolean, default=False)
     
     # Properties
     @property
@@ -87,33 +89,32 @@ class SalesOrderItem(BaseModel):
     """Detail item dalam Sales Order"""
     __tablename__ = 'sales_order_items'
     
-    id = db.Column(db.Integer, primary_key=True)
-    line_number = db.Column(db.Integer)  # Urutan item dalam SO
-    quantity_requested = db.Column(db.Integer, nullable=False)
-    unit_price = db.Column(db.Numeric(12, 2))
-    total_price = db.Column(db.Numeric(15, 2))
+    line_number = Column(Integer)
+    quantity_requested = Column(Integer, nullable=False)
+    unit_price = Column(Numeric(12, 2))
+    total_price = Column(Numeric(15, 2))
     
     # Product reference
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    product = db.relationship('Product', back_populates='sales_order_items')
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    product = relationship('Product', back_populates='sales_order_items')
     
     # SO reference
-    sales_order_id = db.Column(db.Integer, db.ForeignKey('sales_orders.id'), nullable=False)
-    sales_order = db.relationship('SalesOrder', back_populates='items')
+    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=False)
+    sales_order = relationship('SalesOrder', back_populates='items')
     
     # Requirements
-    required_delivery_date = db.Column(db.Date)
-    temperature_requirement = db.Column(db.String(50))  # Cold, Frozen, Ambient
-    special_handling = db.Column(db.Text)
+    required_delivery_date = Column(Date)
+    temperature_requirement = Column(String(50))  # Cold, Frozen, Ambient
+    special_handling = Column(Text)
     
     # Status tracking
-    status = db.Column(db.String(50), default='PENDING')  # PENDING, PLANNED, COMPLETED
+    status = Column(String(50), default='PENDING')  # PENDING, PLANNED, COMPLETED
     
     # ERP details
-    erp_item_id = db.Column(db.String(50))
+    erp_item_id = Column(String(50))
     
     # Relationships
-    shipping_plan_items = db.relationship('ShippingPlanItem', back_populates='sales_order_item', cascade='all, delete-orphan')
+    shipping_plan_items = relationship('ShippingPlanItem', back_populates='sales_order_item', cascade='all, delete-orphan')
     
     # Computed properties
     @property
@@ -138,46 +139,45 @@ class ShippingPlan(BaseModel):
     """Model untuk Rencana Pengiriman yang dibuat tim penjualan"""
     __tablename__ = 'shipping_plans'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    plan_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    plan_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Planning details
-    planned_delivery_date = db.Column(db.Date, nullable=False)
-    actual_delivery_date = db.Column(db.Date)
+    planned_delivery_date = Column(Date, nullable=False)
+    actual_delivery_date = Column(Date)
     
     # Reference ke SO
-    sales_order_id = db.Column(db.Integer, db.ForeignKey('sales_orders.id'), nullable=False)
-    sales_order = db.relationship('SalesOrder', back_populates='shipping_plans')
+    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=False)
+    sales_order = relationship('SalesOrder', back_populates='shipping_plans')
     
     # Customer (dari SO, tapi diambil untuk kemudahan query)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
-    customer = db.relationship('Customer')
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    customer = relationship('Customer')
     
     # Planning details
-    priority = db.Column(db.String(20), default='NORMAL')  # HIGH, NORMAL, LOW
-    shipping_method = db.Column(db.String(50))  # Express, Regular, Economy
+    priority = Column(String(20), default='NORMAL')  # HIGH, NORMAL, LOW
+    shipping_method = Column(String(50))  # Express, Regular, Economy
     
     # Status tracking
-    status = db.Column(db.String(50), default='PENDING', nullable=False)
+    status = Column(String(50), default='PENDING', nullable=False)
     # PENDING, CONFIRMED, PICKING_LIST_CREATED, IN_PROGRESS, COMPLETED, CANCELLED
     
     # Tracking
-    created_by = db.Column(db.String(50))  # Tim penjualan yang buat plan
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    confirmed_by = db.Column(db.String(50))
-    confirmed_date = db.Column(db.DateTime)
+    created_by = Column(String(50))  # Tim penjualan yang buat plan
+    created_date = Column(DateTime, default=func.current_timestamp())
+    confirmed_by = Column(String(50))
+    confirmed_date = Column(DateTime)
     
     # Notes
-    notes = db.Column(db.Text)
-    delivery_address = db.Column(db.Text)
-    contact_person = db.Column(db.String(100))
-    contact_phone = db.Column(db.String(20))
+    notes = Column(Text)
+    delivery_address = Column(Text)
+    contact_person = Column(String(100))
+    contact_phone = Column(String(20))
     
     # Relationships
-    items = db.relationship('ShippingPlanItem', back_populates='shipping_plan', cascade='all, delete-orphan')
-    picking_lists = db.relationship('PickingList', back_populates='shipping_plan')
-    shipment = db.relationship('Shipment', back_populates='shipping_plan', uselist=False)
+    items = relationship('ShippingPlanItem', back_populates='shipping_plan', cascade='all, delete-orphan')
+    picking_lists = relationship('PickingList', back_populates='shipping_plan')
+    shipment = relationship('Shipment', back_populates='shipping_plan', uselist=False)
     
     # Computed properties
     @property
@@ -202,32 +202,31 @@ class ShippingPlanItem(BaseModel):
     """Detail item dalam Shipping Plan"""
     __tablename__ = 'shipping_plan_items'
     
-    id = db.Column(db.Integer, primary_key=True)
-    quantity_to_fulfill = db.Column(db.Integer, nullable=False)
+    quantity_to_fulfill = Column(Integer, nullable=False)
     
     # References
-    shipping_plan_id = db.Column(db.Integer, db.ForeignKey('shipping_plans.id'), nullable=False)
-    shipping_plan = db.relationship('ShippingPlan', back_populates='items')
+    shipping_plan_id = Column(Integer, ForeignKey('shipping_plans.id'), nullable=False)
+    shipping_plan = relationship('ShippingPlan', back_populates='items')
     
-    sales_order_item_id = db.Column(db.Integer, db.ForeignKey('sales_order_items.id'), nullable=False)
-    sales_order_item = db.relationship('SalesOrderItem', back_populates='shipping_plan_items')
+    sales_order_item_id = Column(Integer, ForeignKey('sales_order_items.id'), nullable=False)
+    sales_order_item = relationship('SalesOrderItem', back_populates='shipping_plan_items')
     
     # Planning details
-    line_number = db.Column(db.Integer)  # Urutan dalam shipping plan
-    planned_date = db.Column(db.Date)
+    line_number = Column(Integer)  # Urutan dalam shipping plan
+    planned_date = Column(Date)
     
     # Requirements (copied from SO item untuk kemudahan)
-    temperature_requirement = db.Column(db.String(50))
-    special_handling = db.Column(db.Text)
+    temperature_requirement = Column(String(50))
+    special_handling = Column(Text)
     
     # Status tracking
-    status = db.Column(db.String(50), default='PENDING')  # PENDING, PICKING_LIST_CREATED, COMPLETED
+    status = Column(String(50), default='PENDING')  # PENDING, PICKING_LIST_CREATED, COMPLETED
     
     # Notes
-    notes = db.Column(db.Text)
+    notes = Column(Text)
     
     # Relationships
-    picking_list_items = db.relationship('PickingListItem', back_populates='shipping_plan_item')
+    picking_list_items = relationship('PickingListItem', back_populates='shipping_plan_item')
     
     # Properties untuk kemudahan akses
     @property

@@ -1,46 +1,48 @@
-from app.models.base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
-from sqlalchemy import Numeric
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, Date, Numeric, Boolean,
+    func
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 
 class ConsignmentAgreement(BaseModel):
     """Model untuk Perjanjian Konsinyasi dengan Customer"""
     __tablename__ = 'consignment_agreements'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    agreement_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    agreement_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Customer information
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
-    customer = db.relationship('Customer', back_populates='consignment_agreements')
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    customer = relationship('Customer', back_populates='consignment_agreements')
     
     # Agreement details
-    agreement_date = db.Column(db.Date, nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
+    agreement_date = Column(Date, nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date)
     
     # Terms and conditions
-    commission_rate = db.Column(db.Numeric(5, 2))  # Percentage commission
-    payment_terms_days = db.Column(db.Integer, default=30)
-    return_policy_days = db.Column(db.Integer, default=90)  # Max days untuk return
+    commission_rate = Column(Numeric(5, 2))  # Percentage commission
+    payment_terms_days = Column(Integer, default=30)
+    return_policy_days = Column(Integer, default=90)  # Max days untuk return
     
     # Status
-    status = db.Column(db.String(20), default='ACTIVE')  # ACTIVE, SUSPENDED, TERMINATED, EXPIRED
+    status = Column(String(20), default='ACTIVE')  # ACTIVE, SUSPENDED, TERMINATED, EXPIRED
     
     # Document references
-    contract_document_url = db.Column(db.String(255))
-    terms_document_url = db.Column(db.String(255))
+    contract_document_url = Column(String(255))
+    terms_document_url = Column(String(255))
     
     # Tracking
-    created_by = db.Column(db.String(50))
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    approved_by = db.Column(db.String(50))
-    approved_date = db.Column(db.DateTime)
+    created_by = Column(String(50))
+    created_date = Column(DateTime, default=func.current_timestamp())
+    approved_by = Column(String(50))
+    approved_date = Column(DateTime)
     
     # Relationships
-    consignments = db.relationship('Consignment', back_populates='agreement')
+    consignments = relationship('Consignment', back_populates='agreement')
     
     def __repr__(self):
         return f'<ConsignmentAgreement {self.agreement_number}>'
@@ -52,49 +54,48 @@ class Consignment(BaseModel):
     """
     __tablename__ = 'consignments'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    consignment_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    consignment_number = Column(String(50), unique=True, nullable=False, index=True)
     
     # Agreement reference
-    agreement_id = db.Column(db.Integer, db.ForeignKey('consignment_agreements.id'), nullable=False)
-    agreement = db.relationship('ConsignmentAgreement', back_populates='consignments')
+    agreement_id = Column(Integer, ForeignKey('consignment_agreements.id'), nullable=False)
+    agreement = relationship('ConsignmentAgreement', back_populates='consignments')
     
     # Allocation reference (Consignment adalah tipe allocation khusus)
-    allocation_id = db.Column(db.Integer, db.ForeignKey('allocations.id'), nullable=False)
-    allocation = db.relationship('Allocation', back_populates='consignments')
+    allocation_id = Column(Integer, ForeignKey('allocations.id'), nullable=False)
+    allocation = relationship('Allocation', back_populates='consignments')
     
     # Shipment reference (ketika consignment dikirim)
-    shipment_id = db.Column(db.Integer, db.ForeignKey('shipments.id'), nullable=True)
-    shipment = db.relationship('Shipment', back_populates='consignments')
+    shipment_id = Column(Integer, ForeignKey('shipments.id'), nullable=True)
+    shipment = relationship('Shipment', back_populates='consignments')
     
     # Consignment details
-    consignment_date = db.Column(db.Date, nullable=False)
-    expected_return_date = db.Column(db.Date)
-    actual_return_date = db.Column(db.Date)
+    consignment_date = Column(Date, nullable=False)
+    expected_return_date = Column(Date)
+    actual_return_date = Column(Date)
     
     # Financial tracking
-    total_value = db.Column(db.Numeric(15, 2))  # Total value produk yang dikonsinyasi
-    commission_rate = db.Column(db.Numeric(5, 2))  # Rate komisi untuk consignment ini
+    total_value = Column(Numeric(15, 2))  # Total value produk yang dikonsinyasi
+    commission_rate = Column(Numeric(5, 2))  # Rate komisi untuk consignment ini
     
     # Status tracking
-    status = db.Column(db.String(20), default='PENDING', nullable=False)
+    status = Column(String(20), default='PENDING', nullable=False)
     # PENDING, SHIPPED, RECEIVED_BY_CUSTOMER, PARTIALLY_SOLD, FULLY_SOLD, RETURNED, CANCELLED
     
     # Notes
-    notes = db.Column(db.Text)
-    terms_conditions = db.Column(db.Text)
+    notes = Column(Text)
+    terms_conditions = Column(Text)
     
     # Tracking
-    created_by = db.Column(db.String(50))
-    created_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    shipped_by = db.Column(db.String(50))
-    shipped_date = db.Column(db.DateTime)
+    created_by = Column(String(50))
+    created_date = Column(DateTime, default=func.current_timestamp())
+    shipped_by = Column(String(50))
+    shipped_date = Column(DateTime)
     
     # Relationships
-    items = db.relationship('ConsignmentItem', back_populates='consignment', cascade='all, delete-orphan')
-    sales = db.relationship('ConsignmentSale', back_populates='consignment', cascade='all, delete-orphan')
-    returns = db.relationship('ConsignmentReturn', back_populates='consignment', cascade='all, delete-orphan')
+    items = relationship('ConsignmentItem', back_populates='consignment', cascade='all, delete-orphan')
+    sales = relationship('ConsignmentSale', back_populates='consignment', cascade='all, delete-orphan')
+    returns = relationship('ConsignmentReturn', back_populates='consignment', cascade='all, delete-orphan')
     
     # Properties untuk kemudahan akses
     @property
@@ -132,38 +133,36 @@ class ConsignmentItem(BaseModel):
     """Detail item dalam consignment"""
     __tablename__ = 'consignment_items'
     
-    id = db.Column(db.Integer, primary_key=True)
-    
     # References
-    consignment_id = db.Column(db.Integer, db.ForeignKey('consignments.id'), nullable=False)
-    consignment = db.relationship('Consignment', back_populates='items')
+    consignment_id = Column(Integer, ForeignKey('consignments.id'), nullable=False)
+    consignment = relationship('Consignment', back_populates='items')
     
     # Product & batch info (dari allocation)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    product = db.relationship('Product')
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    product = relationship('Product')
     
-    batch_id = db.Column(db.Integer, db.ForeignKey('batches.id'), nullable=False)
-    batch = db.relationship('Batch')
+    batch_id = Column(Integer, ForeignKey('batches.id'), nullable=False)
+    batch = relationship('Batch')
     
     # Quantities
-    quantity_shipped = db.Column(db.Integer, nullable=False)
-    quantity_sold = db.Column(db.Integer, default=0)
-    quantity_returned = db.Column(db.Integer, default=0)
+    quantity_shipped = Column(Integer, nullable=False)
+    quantity_sold = Column(Integer, default=0)
+    quantity_returned = Column(Integer, default=0)
     
     # Pricing
-    unit_value = db.Column(db.Numeric(12, 2))  # Nilai per unit
-    total_value = db.Column(db.Numeric(15, 2))  # Total nilai item ini
-    selling_price = db.Column(db.Numeric(12, 2))  # Harga jual yang disepakati
+    unit_value = Column(Numeric(12, 2))  # Nilai per unit
+    total_value = Column(Numeric(15, 2))  # Total nilai item ini
+    selling_price = Column(Numeric(12, 2))  # Harga jual yang disepakati
     
     # Status per item
-    status = db.Column(db.String(20), default='SHIPPED')  # SHIPPED, PARTIALLY_SOLD, SOLD, RETURNED
+    status = Column(String(20), default='SHIPPED')  # SHIPPED, PARTIALLY_SOLD, SOLD, RETURNED
     
     # Tracking
-    expiry_date = db.Column(db.Date)  # Copy dari batch untuk tracking
-    lot_number = db.Column(db.String(50))  # Copy dari batch
+    expiry_date = Column(Date)  # Copy dari batch untuk tracking
+    lot_number = Column(String(50))  # Copy dari batch
     
     # Notes
-    notes = db.Column(db.Text)
+    notes = Column(Text)
     
     @property
     def quantity_remaining(self):
@@ -176,44 +175,43 @@ class ConsignmentSale(BaseModel):
     """Model untuk tracking penjualan dari consignment"""
     __tablename__ = 'consignment_sales'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    sale_number = db.Column(db.String(50), unique=True, nullable=False)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    sale_number = Column(String(50), unique=True, nullable=False)
     
     # References
-    consignment_id = db.Column(db.Integer, db.ForeignKey('consignments.id'), nullable=False)
-    consignment = db.relationship('Consignment', back_populates='sales')
+    consignment_id = Column(Integer, ForeignKey('consignments.id'), nullable=False)
+    consignment = relationship('Consignment', back_populates='sales')
     
-    consignment_item_id = db.Column(db.Integer, db.ForeignKey('consignment_items.id'), nullable=False)
-    consignment_item = db.relationship('ConsignmentItem')
+    consignment_item_id = Column(Integer, ForeignKey('consignment_items.id'), nullable=False)
+    consignment_item = relationship('ConsignmentItem')
     
     # Sale details
-    sale_date = db.Column(db.Date, nullable=False)
-    quantity_sold = db.Column(db.Integer, nullable=False)
-    unit_price = db.Column(db.Numeric(12, 2), nullable=False)
-    total_value = db.Column(db.Numeric(15, 2), nullable=False)
+    sale_date = Column(Date, nullable=False)
+    quantity_sold = Column(Integer, nullable=False)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    total_value = Column(Numeric(15, 2), nullable=False)
     
     # Commission calculation
-    commission_rate = db.Column(db.Numeric(5, 2))
-    commission_amount = db.Column(db.Numeric(12, 2))
-    net_amount = db.Column(db.Numeric(12, 2))  # Amount after commission
+    commission_rate = Column(Numeric(5, 2))
+    commission_amount = Column(Numeric(12, 2))
+    net_amount = Column(Numeric(12, 2))  # Amount after commission
     
     # Customer info (end customer yang beli)
-    end_customer_name = db.Column(db.String(100))
-    end_customer_info = db.Column(db.Text)
+    end_customer_name = Column(String(100))
+    end_customer_info = Column(Text)
     
     # Document references
-    invoice_number = db.Column(db.String(50))
-    receipt_document_url = db.Column(db.String(255))
+    invoice_number = Column(String(50))
+    receipt_document_url = Column(String(255))
     
     # Status
-    status = db.Column(db.String(20), default='CONFIRMED')  # PENDING, CONFIRMED, PAID, CANCELLED
+    status = Column(String(20), default='CONFIRMED')  # PENDING, CONFIRMED, PAID, CANCELLED
     
     # Tracking
-    reported_by = db.Column(db.String(50))  # Customer yang report penjualan
-    reported_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    verified_by = db.Column(db.String(50))
-    verified_date = db.Column(db.DateTime)
+    reported_by = Column(String(50))  # Customer yang report penjualan
+    reported_date = Column(DateTime, default=func.current_timestamp())
+    verified_by = Column(String(50))
+    verified_date = Column(DateTime)
     
     def __repr__(self):
         return f'<ConsignmentSale {self.sale_number}>'
@@ -222,50 +220,49 @@ class ConsignmentReturn(BaseModel):
     """Model untuk tracking return dari consignment"""
     __tablename__ = 'consignment_returns'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    return_number = db.Column(db.String(50), unique=True, nullable=False)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    return_number = Column(String(50), unique=True, nullable=False)
     
     # References
-    consignment_id = db.Column(db.Integer, db.ForeignKey('consignments.id'), nullable=False)
-    consignment = db.relationship('Consignment', back_populates='returns')
+    consignment_id = Column(Integer, ForeignKey('consignments.id'), nullable=False)
+    consignment = relationship('Consignment', back_populates='returns')
     
-    consignment_item_id = db.Column(db.Integer, db.ForeignKey('consignment_items.id'), nullable=False)
-    consignment_item = db.relationship('ConsignmentItem')
+    consignment_item_id = Column(Integer, ForeignKey('consignment_items.id'), nullable=False)
+    consignment_item = relationship('ConsignmentItem')
     
     # Return details
-    return_date = db.Column(db.Date, nullable=False)
-    quantity_returned = db.Column(db.Integer, nullable=False)
+    return_date = Column(Date, nullable=False)
+    quantity_returned = Column(Integer, nullable=False)
     
     # Return reason and condition
-    return_reason = db.Column(db.String(100))  # EXPIRED, DAMAGED, UNSOLD, RECALL, etc.
-    condition = db.Column(db.String(50))  # GOOD, DAMAGED, EXPIRED
+    return_reason = Column(String(100))  # EXPIRED, DAMAGED, UNSOLD, RECALL, etc.
+    condition = Column(String(50))  # GOOD, DAMAGED, EXPIRED
     
     # Quality check results
-    qc_status = db.Column(db.String(20))  # PENDING, PASSED, FAILED
-    qc_notes = db.Column(db.Text)
-    qc_by = db.Column(db.String(50))
-    qc_date = db.Column(db.DateTime)
+    qc_status = Column(String(20))  # PENDING, PASSED, FAILED
+    qc_notes = Column(Text)
+    qc_by = Column(String(50))
+    qc_date = Column(DateTime)
     
     # Disposition
-    disposition = db.Column(db.String(50))  # RESTOCK, QUARANTINE, DISPOSE, REWORK
-    restocked_quantity = db.Column(db.Integer, default=0)
-    disposed_quantity = db.Column(db.Integer, default=0)
+    disposition = Column(String(50))  # RESTOCK, QUARANTINE, DISPOSE, REWORK
+    restocked_quantity = Column(Integer, default=0)
+    disposed_quantity = Column(Integer, default=0)
     
     # Document
-    return_document_url = db.Column(db.String(255))
-    photos_url = db.Column(db.Text)  # JSON array of photo URLs
+    return_document_url = Column(String(255))
+    photos_url = Column(Text)  # JSON array of photo URLs
     
     # Status
-    status = db.Column(db.String(20), default='PENDING')  # PENDING, RECEIVED, QC_DONE, PROCESSED
+    status = Column(String(20), default='PENDING')  # PENDING, RECEIVED, QC_DONE, PROCESSED
     
     # Tracking
-    initiated_by = db.Column(db.String(50))
-    received_by = db.Column(db.String(50))
-    received_date = db.Column(db.DateTime)
+    initiated_by = Column(String(50))
+    received_by = Column(String(50))
+    received_date = Column(DateTime)
     
     # Notes
-    notes = db.Column(db.Text)
+    notes = Column(Text)
     
     def __repr__(self):
         return f'<ConsignmentReturn {self.return_number}>'
@@ -274,44 +271,43 @@ class ConsignmentStatement(BaseModel):
     """Model untuk statement/laporan konsinyasi periodic"""
     __tablename__ = 'consignment_statements'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    statement_number = db.Column(db.String(50), unique=True, nullable=False)
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    statement_number = Column(String(50), unique=True, nullable=False)
     
     # References
-    agreement_id = db.Column(db.Integer, db.ForeignKey('consignment_agreements.id'), nullable=False)
-    agreement = db.relationship('ConsignmentAgreement')
+    agreement_id = Column(Integer, ForeignKey('consignment_agreements.id'), nullable=False)
+    agreement = relationship('ConsignmentAgreement')
     
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
-    customer = db.relationship('Customer')
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    customer = relationship('Customer')
     
     # Period
-    period_start = db.Column(db.Date, nullable=False)
-    period_end = db.Column(db.Date, nullable=False)
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
     
     # Summary totals
-    total_shipped_value = db.Column(db.Numeric(15, 2))
-    total_sold_value = db.Column(db.Numeric(15, 2))
-    total_returned_value = db.Column(db.Numeric(15, 2))
-    total_commission = db.Column(db.Numeric(12, 2))
-    net_amount_due = db.Column(db.Numeric(15, 2))
+    total_shipped_value = Column(Numeric(15, 2))
+    total_sold_value = Column(Numeric(15, 2))
+    total_returned_value = Column(Numeric(15, 2))
+    total_commission = Column(Numeric(12, 2))
+    net_amount_due = Column(Numeric(15, 2))
     
     # Payment tracking
-    payment_status = db.Column(db.String(20), default='PENDING')  # PENDING, PARTIAL, PAID, OVERDUE
-    payment_due_date = db.Column(db.Date)
-    payment_received_date = db.Column(db.Date)
-    payment_amount = db.Column(db.Numeric(15, 2))
+    payment_status = Column(String(20), default='PENDING')  # PENDING, PARTIAL, PAID, OVERDUE
+    payment_due_date = Column(Date)
+    payment_received_date = Column(Date)
+    payment_amount = Column(Numeric(15, 2))
     
     # Document
-    statement_document_url = db.Column(db.String(255))
+    statement_document_url = Column(String(255))
     
     # Status
-    status = db.Column(db.String(20), default='DRAFT')  # DRAFT, SENT, CONFIRMED, PAID
+    status = Column(String(20), default='DRAFT')  # DRAFT, SENT, CONFIRMED, PAID
     
     # Tracking
-    generated_by = db.Column(db.String(50))
-    generated_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    sent_date = db.Column(db.DateTime)
+    generated_by = Column(String(50))
+    generated_date = Column(DateTime, default=func.current_timestamp())
+    sent_date = Column(DateTime)
     
     def __repr__(self):
         return f'<ConsignmentStatement {self.statement_number}>'
