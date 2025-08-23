@@ -106,7 +106,7 @@ from .consignment import (
 # ==================== USER DOMAIN ====================
 from .user import (
     UserSchema, UserCreateSchema, UserUpdateSchema, UserProfileSchema,
-    PasswordChangeSchema, LoginSchema, LoginResponseSchema, RefreshTokenSchema,
+    PasswordChangeSchema, LoginSchema, LoginResponseSchema, TokenRefreshSchema,
     UserSessionSchema, UserActivitySchema
 )
 
@@ -200,7 +200,7 @@ __all__ = [
     
     # User domain
     'UserSchema', 'UserCreateSchema', 'UserUpdateSchema', 'UserProfileSchema',
-    'PasswordChangeSchema', 'LoginSchema', 'LoginResponseSchema', 'RefreshTokenSchema',
+    'PasswordChangeSchema', 'LoginSchema', 'LoginResponseSchema', 'TokenRefreshSchema',
     'UserSessionSchema', 'UserActivitySchema',
     
     # Helper domain

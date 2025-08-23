@@ -10,7 +10,8 @@ from typing import Dict, Any, List, Optional
 
 from ...services import ServiceRegistry
 from ...schemas import UserSchema, UserCreateSchema, UserUpdateSchema
-from .. import get_service_registry, APIResponse
+from ...dependencies import get_service_registry
+from ...responses import APIResponse
 
 router = APIRouter()
 

@@ -7,12 +7,12 @@ CRITICAL SERVICE untuk audit logging dan compliance tracking
 
 import json
 from typing import Dict, Any, List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, desc
 
 from ..base import BaseService, transactional
-from ...models import AuditLog, UserActivity, timedelta
+from ...models import AuditLog, UserActivity
 
 class AuditService(BaseService):
     """CRITICAL SERVICE untuk Audit dan Compliance"""

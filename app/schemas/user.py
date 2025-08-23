@@ -275,7 +275,7 @@ class LoginResponseSchema(BaseModel):
     expires_in: int
     user: UserSchema
 
-class RefreshTokenSchema(BaseModel):
+class TokenRefreshSchema(BaseModel):
     """Schema untuk refresh token"""
     refresh_token: str
 

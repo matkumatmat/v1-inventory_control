@@ -69,4 +69,26 @@ class Rack(BaseModel):
     
     def __repr__(self):
         return f"<Rack {self.code} - Qty: {self.quantity}>"
+
+
+class RackAllocation(BaseModel):
+    """Association table between Rack and Allocation"""
+    __tablename__ = 'rack_allocations'
     
+    id = db.Column(db.Integer, primary_key=True)
+    
+    rack_id = db.Column(db.Integer, db.ForeignKey('racks.id'), nullable=False)
+    allocation_id = db.Column(db.Integer, db.ForeignKey('allocations.id'), nullable=False)
+    
+    quantity = db.Column(db.Integer, nullable=False)
+    
+    placement_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    placed_by = db.Column(db.String(50))
+    position_details = db.Column(db.String(255))
+    
+    # Relationships
+    rack = db.relationship('Rack', back_populates='allocations')
+    allocation = db.relationship('Allocation', back_populates='rack_allocations')
+
+    def __repr__(self):
+        return f"<RackAllocation rack={self.rack.code} alloc_id={self.allocation_id} qty={self.quantity}>"

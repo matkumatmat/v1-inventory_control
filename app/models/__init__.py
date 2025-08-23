@@ -108,6 +108,12 @@ from .user import (
     UserActivity,
 )
 
+# ==================== INTEGRATION DOMAIN ====================
+
+from .integration import (
+    ERPSyncLog,
+)
+
 # ==================== HELPER/ENUM TABLES ====================
 
 from .helper import (
@@ -367,6 +373,9 @@ __all__ = [
     
     # User & security domain
     'User', 'UserRole', 'UserSession', 'UserActivity',
+
+    # Integration domain
+    'ERPSyncLog',
     
     # Audit & logging domain
     'AuditLog', 'SystemLog', 'NotificationLog',
@@ -403,7 +412,7 @@ def init_app(app):
     from . import (
         product, warehouse, customer, salesorder, picking, 
         shipment, consignment, user, helper,
-        contract, packing_slip  # TAMBAHAN BARU
+        contract, packing_slip, integration  # TAMBAHAN BARU
     )
     
     # Create tables if they don't exist (for development)

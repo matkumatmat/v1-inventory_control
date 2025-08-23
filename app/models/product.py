@@ -84,6 +84,16 @@ class Allocation(BaseModel):
     reserved_quantity = db.Column(db.Integer, default=0)
     status = db.Column(db.String(50), default='active')
 
+    # Tambahan dari skema
+    allocation_number = db.Column(db.String(50), unique=True, nullable=True, index=True)
+    allocation_date = db.Column(db.Date, nullable=False, default=db.func.current_date())
+    expiry_date = db.Column(db.Date)
+    priority_level = db.Column(db.Integer, default=5)
+    special_instructions = db.Column(db.Text)
+    handling_requirements = db.Column(db.Text)
+    unit_cost = db.Column(db.Numeric(10, 2))
+    total_value = db.Column(db.Numeric(10, 2))
+
     @property
     def last_stock(self):
         """'Stock Terakhir' di dalam alokasi ini."""
