@@ -1,10 +1,14 @@
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, DateTime, Integer
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 
-db = SQLAlchemy()
+# Create a declarative base which all models will inherit from
+Base = declarative_base()
 
-class BaseModel(db.Model):
+# Define a BaseModel with common columns to keep the code DRY (Don't Repeat Yourself)
+# This is an abstract class; it won't be created as a table itself.
+class BaseModel(Base):
     __abstract__ = True
-    id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

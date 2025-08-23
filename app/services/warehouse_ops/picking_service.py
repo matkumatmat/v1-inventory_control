@@ -208,6 +208,46 @@ class PickingListService(CRUDService):
         
         return self.response_schema().dump(picking_list)
     
+    @transactional
+    @audit_log('PICK_ITEM', 'PickingList')
+    def update_item_picked_quantity(self, item_id: int, quantity_picked: int, 
+                                    picker_notes: Optional[str] = None) -> Dict[str, Any]:
+        """Update the picked quantity for a single picking list item."""
+        item = self._get_or_404(PickingListItem, item_id)
+        picking_list = item.picking_list
+        
+        if picking_list.status != 'IN_PROGRESS':
+            raise PickingError(f"Can only pick items for 'IN_PROGRESS' lists. Current status: {picking_list.status}")
+            
+        if quantity_picked > item.quantity_to_pick:
+            raise ValidationError(f"Picked quantity ({quantity_picked}) cannot exceed quantity to pick ({item.quantity_to_pick}).")
+            
+        if quantity_picked < 0:
+            raise ValidationError("Picked quantity cannot be negative.")
+            
+        # Update item
+        item.quantity_picked = quantity_picked
+        item.picked_date = datetime.utcnow()
+        item.picker_notes = picker_notes
+        self._set_audit_fields(item, is_update=True)
+        
+        # Create movement record for traceability
+        if self.movement_service and item.allocation_id:
+            try:
+                self.movement_service.create_picking_movement(
+                    allocation_id=item.allocation_id,
+                    quantity=quantity_picked,
+                    picking_order_id=picking_list.id, # Using list id as reference
+                    source_rack_id=item.rack_id
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to create movement record for picking item {item.id}: {str(e)}")
+        
+        # Update totals on the parent list
+        self._update_picking_list_totals(picking_list.id)
+        
+        return PickingListItemSchema().dump(item)
+
     def get_picking_list_with_items(self, picking_list_id: int) -> Dict[str, Any]:
         """Get picking list dengan all items"""
         picking_list = self._get_or_404(PickingList, picking_list_id)

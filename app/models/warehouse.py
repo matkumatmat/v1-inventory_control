@@ -1,50 +1,51 @@
-from .base import BaseModel, db
-from sqlalchemy.dialects.postgresql import UUID 
 import uuid
+from sqlalchemy import (
+    Column, Integer, String, ForeignKey, Text, DateTime, func
+)
+from sqlalchemy.orm import relationship
+from .base import BaseModel
 
 class Warehouse(BaseModel):
     __tablename__ = 'warehouses'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(10), unique=True, nullable=False)
-    address = db.Column(db.Text)
-    status = db.Column(db.String(50), default='active')
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    code = Column(String(10), unique=True, nullable=False)
+    address = Column(Text)
+    status = Column(String(50), default='active')
     
-    racks = db.relationship('Rack', back_populates='warehouse')
+    racks = relationship('Rack', back_populates='warehouse')
 
 class Rack(BaseModel):
 
     __tablename__ = 'racks'
     
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
-    code = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    quantity = db.Column(db.Integer, default=0, nullable=False)
-    status = db.Column(db.String(50), default='active')
+    public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False, index=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    quantity = Column(Integer, default=0, nullable=False)
+    status = Column(String(50), default='active')
     
     # Location details
-    zone = db.Column(db.String(10))  # Zone A, B, C
-    row = db.Column(db.String(10))   # Row 1, 2, 3
-    level = db.Column(db.String(10)) # Level 1, 2, 3
+    zone = Column(String(10))  # Zone A, B, C
+    row = Column(String(10))   # Row 1, 2, 3
+    level = Column(String(10)) # Level 1, 2, 3
     
-    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=False)
-    warehouse = db.relationship('Warehouse', back_populates='racks')
+    warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=False)
+    warehouse = relationship('Warehouse', back_populates='racks')
     
     # PENTING: Rack terkait dengan allocation (bukan batch langsung)
-    allocation_id = db.Column(db.Integer, db.ForeignKey('allocations.id'), nullable=True)
-    allocation = db.relationship('Allocation', back_populates='racks')
-    allocations = db.relationship("RackAllocation", back_populates="rack", cascade="all, delete-orphan")
+    allocation_id = Column(Integer, ForeignKey('allocations.id'), nullable=True)
+    allocation = relationship('Allocation', back_populates='racks')
+    allocations = relationship("RackAllocation", back_populates="rack", cascade="all, delete-orphan")
 
 
-    location_type_id = db.Column(db.Integer, db.ForeignKey('location_types.id'), nullable=True)
-    location_type = db.relationship('LocationType')    
+    location_type_id = Column(Integer, ForeignKey('location_types.id'), nullable=True)
+    location_type = relationship('LocationType')
     
     # TAMBAHAN: Relationships untuk tracking
-    picking_order_items = db.relationship('PickingOrderItem', back_populates='rack')
-    picking_list_items = db.relationship('PickingListItem', back_populates='rack')
-    stock_movements = db.relationship('StockMovement', back_populates='rack')
+    picking_order_items = relationship('PickingOrderItem', back_populates='rack')
+    picking_list_items = relationship('PickingListItem', back_populates='rack')
+    stock_movements = relationship('StockMovement', back_populates='rack')
     
     # Properties untuk info batch dan product
     @property
@@ -75,20 +76,19 @@ class RackAllocation(BaseModel):
     """Association table between Rack and Allocation"""
     __tablename__ = 'rack_allocations'
     
-    id = db.Column(db.Integer, primary_key=True)
     
-    rack_id = db.Column(db.Integer, db.ForeignKey('racks.id'), nullable=False)
-    allocation_id = db.Column(db.Integer, db.ForeignKey('allocations.id'), nullable=False)
+    rack_id = Column(Integer, ForeignKey('racks.id'), nullable=False)
+    allocation_id = Column(Integer, ForeignKey('allocations.id'), nullable=False)
     
-    quantity = db.Column(db.Integer, nullable=False)
+    quantity = Column(Integer, nullable=False)
     
-    placement_date = db.Column(db.DateTime, default=db.func.current_timestamp())
-    placed_by = db.Column(db.String(50))
-    position_details = db.Column(db.String(255))
+    placement_date = Column(DateTime, default=func.current_timestamp())
+    placed_by = Column(String(50))
+    position_details = Column(String(255))
     
     # Relationships
-    rack = db.relationship('Rack', back_populates='allocations')
-    allocation = db.relationship('Allocation', back_populates='rack_allocations')
+    rack = relationship('Rack', back_populates='allocations')
+    allocation = relationship('Allocation', back_populates='rack_allocations')
 
     def __repr__(self):
         return f"<RackAllocation rack={self.rack.code} alloc_id={self.allocation_id} qty={self.quantity}>"
