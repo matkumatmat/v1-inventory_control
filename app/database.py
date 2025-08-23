@@ -3,7 +3,8 @@ from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
 
 from .config import settings
-
+from dotenv import load_dotenv
+load_dotenv()
 # Buat async engine ke database sesuai URL dari config
 # Tambahkan connect_args={"check_same_thread": False} khusus untuk SQLite
 async_engine = create_async_engine(

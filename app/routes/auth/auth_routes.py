@@ -11,7 +11,8 @@ from typing import Dict, Any
 
 from ...services import ServiceRegistry
 from ...schemas import LoginSchema, LoginResponseSchema, TokenRefreshSchema
-from .. import get_service_registry_optional, APIResponse
+from ...dependencies import get_service_registry_optional
+from ...responses import APIResponse
 
 router = APIRouter()
 security = HTTPBearer()

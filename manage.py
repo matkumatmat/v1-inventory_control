@@ -1,4 +1,10 @@
 # backends/manage.py
+
+# --- FIX: Tambahkan dua baris ini di paling atas ---
+from dotenv import load_dotenv
+load_dotenv()
+# ----------------------------------------------------
+
 import asyncio
 import typer
 import uvicorn
