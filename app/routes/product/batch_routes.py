@@ -5,7 +5,7 @@ Batch Routes
 CRITICAL ROUTES untuk Batch management (core inbound operations)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from typing import Dict, Any, List, Optional
 from datetime import date
 
@@ -292,7 +292,7 @@ async def release_from_quarantine(
 
 @router.get("/expiring/{days_ahead}")
 async def get_expiring_batches(
-    days_ahead: int = Query(30, ge=1, le=365),
+    days_ahead: int = Path(..., title="Days Ahead", ge=1, le=365),
     service_registry: ServiceRegistry = Depends(get_service_registry)
 ):
     """

@@ -109,7 +109,7 @@ def run(
     typer.echo(f"🚀 Menjalankan server di http://{host}:{port}")
     # Kita menunjuk ke 'app' di dalam file 'main.py'
     # Pastikan kamu punya file main.py di root backends/
-    uvicorn.run("main:app", host=host, port=port, reload=reload, factory=True)
+    uvicorn.run("main:app", host=host, port=port, reload=reload)
 
 
 if __name__ == "__main__":
