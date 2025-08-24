@@ -60,8 +60,7 @@ def audit_log(action: str, entity_type: str):
                         entity_type=entity_type,
                         entity_id=entity_id,
                         action=action,
-                        request_id=request_id,
-                        duration_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                        request_id=request_id
                     )
                 
                 return result

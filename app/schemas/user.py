@@ -67,8 +67,8 @@ class UserSchema(BaseSchema, TimestampMixin):
     
     @field_validator('user_id')
     def user_id_length(cls,v):
-        if not 2 <= len(v) <= 20:
-            raise ValueError('user id must be between 2 and 20 characters')
+        if not 1 <= len(v) <= 20:
+            raise ValueError('user id must be between 1 and 20 characters')
         return v
     
     @field_validator('first_name', 'last_name', 'position', 'timezone')
@@ -91,6 +91,8 @@ class UserSchema(BaseSchema, TimestampMixin):
         
     @field_validator('department')
     def department_valid(cls,v):
+        if v == 'string':
+            return None
         if v and v not in ['WAREHOUSE', 'SALES', 'ADMIN', 'FINANCE']:
             raise ValueError("invalid department")
         return v
@@ -115,6 +117,8 @@ class UserSchema(BaseSchema, TimestampMixin):
 
     @field_validator('assigned_warehouse_id')
     def warehouse_id_positive(cls,v):
+        if v == 0:
+            return None
         if v is not None and v < 1:
             raise ValueError('warehouse id must be positive')
         return v
