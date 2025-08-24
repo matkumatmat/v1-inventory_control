@@ -20,7 +20,7 @@ from typing import Optional
 from .routes.auth import auth_router, user_router
 from .routes.product import product_router, batch_router, allocation_router,package_type_router ,product_type_router , temperature_type_router , allocation_type_router , movement_type_router
 from .routes.customer.customer_routes import customer_router
-#from .routes.customer.sector_type_routes import sector_type_router
+from .routes.customer.sector_type_routes import sector_type_router
 #from .routes.customer.customer_type_routes import customer_type_router
 from .routes.sales.sales_routes import sales_router
 from .routes.sales.shipping_plan_routes import shipping_plan_router
@@ -123,7 +123,7 @@ def setup_routes(app: FastAPI):
     # Core WMS Workflow Routers
     app.include_router(customer_router, prefix="/api/customers", tags=["Customers"])
     #app.include_router(customer_type_router, prefix="/api/customer-types", tags=["Customer Types (Master Data)"])
-    #app.include_router(sector_type_router, prefix="/api/sector-types", tags=["Sector Types (Master Data)"])
+    app.include_router(sector_type_router, prefix="/api/sector-types", tags=["Sector Types (Master Data)"])
     app.include_router(sales_router, prefix="/api/sales-orders", tags=["Sales Orders"])
     app.include_router(shipping_plan_router, prefix="/api/shipping-plans", tags=["Shipping Plans"])
     app.include_router(packing_slip_router, prefix="/api/packing-slips", tags=["Packing Slips"])
