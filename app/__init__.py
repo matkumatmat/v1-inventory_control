@@ -35,7 +35,7 @@ from .routes.shipping.carrier_type_routes import carrier_type_router
 from .routes.system.document_type_routes import document_type_router
 from .routes.system.status_type_routes import status_type_router
 from .routes.system.priority_level_routes import priority_level_router
-#from .routes.system.notification_type_routes import notification_type_router
+from .routes.system.notification_type_routes import notification_type_router
 from .routes.warehouse.location_type_routes import location_type_router
 
 # Import services dan dependencies
@@ -145,7 +145,7 @@ def setup_routes(app: FastAPI):
     app.include_router(document_type_router, prefix="/api/document-types", tags=["Document Types (Master Data)"])
     app.include_router(status_type_router, prefix="/api/status-types", tags=["Status Types (Master Data)"])
     app.include_router(priority_level_router, prefix="/api/priority-levels", tags=["Priority Levels (Master Data)"])
-    #app.include_router(notification_type_router, prefix="/api/notification-types", tags=["Notification Types (Master Data)"])
+    app.include_router(notification_type_router, prefix="/api/notification-types", tags=["Notification Types (Master Data)"])
     app.include_router(location_type_router, prefix="/api/location-types", tags=["Location Types (Master Data)"])
 
 def create_app() -> FastAPI:
@@ -163,9 +163,9 @@ def create_app() -> FastAPI:
     
     # 1. Buat instance FastAPI
     app = FastAPI(
-        title="Warehouse Management System API",
-        description="Complete WMS API untuk Pharmaceutical Supply Chain",
-        version="1.0.0",
+        title="Warehouse Management System API by Kaayeey-Sides",
+        description="Complete WMS API for Pharmaceutical Supply Chain on PBF BioFarma ",
+        version="3.1.1",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc"
