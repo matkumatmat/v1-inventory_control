@@ -18,7 +18,7 @@ from typing import Optional
 
 # Import semua router dari modulnya masing-masing
 from .routes.auth import auth_router, user_router
-from .routes.product import product_router, batch_router, allocation_router,package_type_router ,product_type_router , temperature_type_router , allocation_type_router #, movement_type_router
+from .routes.product import product_router, batch_router, allocation_router,package_type_router ,product_type_router , temperature_type_router , allocation_type_router , movement_type_router
 from .routes.customer.customer_routes import customer_router
 #from .routes.customer.sector_type_routes import sector_type_router
 #from .routes.customer.customer_type_routes import customer_type_router
@@ -116,7 +116,7 @@ def setup_routes(app: FastAPI):
     app.include_router(package_type_router, prefix="/api/package-types", tags=["Package Types (Master Data)"])
     app.include_router(temperature_type_router, prefix="/api/temperature-types", tags=["Temperature Types (Master Data)"])
     app.include_router(allocation_type_router, prefix="/api/allocation-types", tags=["Allocation Types (Master Data)"])
-    #app.include_router(movement_type_router, prefix="/api/movement-types", tags=["Movement Types (Master Data)"])
+    app.include_router(movement_type_router, prefix="/api/movement-types", tags=["Movement Types (Master Data)"])
     app.include_router(batch_router, prefix="/api/batches", tags=["Batches"])
     app.include_router(allocation_router, prefix="/api/allocations", tags=["Allocations"])
 
