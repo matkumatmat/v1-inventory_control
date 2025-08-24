@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query, Body
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.picking import PickingListSchema, PickingListItemSchema
 
@@ -9,7 +10,7 @@ picking_router = APIRouter()
 
 @picking_router.post(
     "/from-shipping-plan/{plan_id}",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a Picking List from a Shipping Plan"
 )
@@ -26,7 +27,7 @@ def create_picking_list(
 
 @picking_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of picking lists"
 )
 def get_all_picking_lists(
@@ -54,7 +55,7 @@ def get_all_picking_lists(
 
 @picking_router.get(
     "/{list_id}",
-    response_model=APIResponse,
+    
     summary="Get a single picking list with items"
 )
 def get_picking_list_by_id(
@@ -69,7 +70,7 @@ def get_picking_list_by_id(
 
 @picking_router.post(
     "/{list_id}/assign",
-    response_model=APIResponse,
+    
     summary="Assign a picker to a picking list"
 )
 def assign_picker_to_list(
@@ -85,7 +86,7 @@ def assign_picker_to_list(
 
 @picking_router.post(
     "/{list_id}/start",
-    response_model=APIResponse,
+    
     summary="Start a picking list"
 )
 def start_picking_list(
@@ -100,7 +101,7 @@ def start_picking_list(
 
 @picking_router.put(
     "/items/{item_id}/pick",
-    response_model=APIResponse,
+    
     summary="Update a picked item's quantity"
 )
 def update_picked_item(
@@ -120,7 +121,7 @@ def update_picked_item(
 
 @picking_router.post(
     "/{list_id}/complete",
-    response_model=APIResponse,
+    
     summary="Complete a picking list"
 )
 def complete_picking_list(

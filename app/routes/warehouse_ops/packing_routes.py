@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query, Body
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.packing import (
     PackingOrderSchema, PackingBoxSchema, PackingBoxCreateSchema,
@@ -14,7 +15,7 @@ packing_router = APIRouter()
 
 @packing_router.post(
     "/from-picking-list/{picking_list_id}",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a Packing Order from a Picking List"
 )
@@ -31,7 +32,7 @@ def create_packing_order(
 
 @packing_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of packing orders"
 )
 def get_all_packing_orders(
@@ -49,7 +50,7 @@ def get_all_packing_orders(
 
 @packing_router.get(
     "/{order_id}",
-    response_model=APIResponse,
+    
     summary="Get a single packing order with boxes"
 )
 def get_packing_order_by_id(
@@ -64,7 +65,7 @@ def get_packing_order_by_id(
 
 @packing_router.post(
     "/{order_id}/assign",
-    response_model=APIResponse,
+    
     summary="Assign a packer to a packing order"
 )
 def assign_packer_to_order(
@@ -80,7 +81,7 @@ def assign_packer_to_order(
 
 @packing_router.post(
     "/{order_id}/start",
-    response_model=APIResponse,
+    
     summary="Start a packing order"
 )
 def start_packing_order(
@@ -95,7 +96,7 @@ def start_packing_order(
 
 @packing_router.post(
     "/{order_id}/complete",
-    response_model=APIResponse,
+    
     summary="Complete a packing order"
 )
 def complete_packing_order(
@@ -114,7 +115,7 @@ def complete_packing_order(
 
 @packing_router.post(
     "/{order_id}/boxes",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a new packing box"
 )
@@ -131,7 +132,7 @@ def create_packing_box(
 
 @packing_router.post(
     "/boxes/{box_id}/items",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Add an item to a packing box"
 )
@@ -148,7 +149,7 @@ def add_item_to_box(
 
 @packing_router.post(
     "/boxes/{box_id}/seal",
-    response_model=APIResponse,
+    
     summary="Seal a packing box"
 )
 def seal_packing_box(

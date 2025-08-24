@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.customer import CustomerSchema, CustomerCreateSchema, CustomerUpdateSchema
 
@@ -9,7 +10,7 @@ customer_router = APIRouter()
 
 @customer_router.post(
     "/",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a new customer"
 )
@@ -25,7 +26,7 @@ def create_customer(
 
 @customer_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of customers"
 )
 def get_all_customers(
@@ -47,7 +48,7 @@ def get_all_customers(
 
 @customer_router.get(
     "/{customer_id}",
-    response_model=APIResponse,
+    
     summary="Get a single customer by ID"
 )
 def get_customer_by_id(
@@ -62,7 +63,7 @@ def get_customer_by_id(
 
 @customer_router.put(
     "/{customer_id}",
-    response_model=APIResponse,
+    
     summary="Update a customer"
 )
 def update_customer(
@@ -81,7 +82,7 @@ def update_customer(
 
 @customer_router.get(
     "/search/",
-    response_model=APIResponse,
+    
     summary="Search for customers"
 )
 def search_customers(

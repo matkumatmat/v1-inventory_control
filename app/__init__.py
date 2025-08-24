@@ -19,6 +19,14 @@ from typing import Optional
 # Import semua router dari modulnya masing-masing
 from .routes.auth import auth_router, user_router
 from .routes.product import product_router, batch_router, allocation_router
+from .routes.customer.customer_routes import customer_router
+from .routes.sales.sales_routes import sales_router
+from .routes.sales.shipping_plan_routes import shipping_plan_router
+from .routes.sales.packing_slip_routes import packing_slip_router
+from .routes.warehouse_ops.picking_routes import picking_router
+from .routes.warehouse_ops.packing_routes import packing_router
+from .routes.shipping.shipment_routes import shipment_router
+from .routes.shipping.carrier_routes import carrier_router
 
 # Import services dan dependencies
 from .services import ServiceRegistry, create_service_registry
@@ -105,6 +113,16 @@ def setup_routes(app: FastAPI):
     app.include_router(batch_router, prefix="/api/batches", tags=["Batches"])
     app.include_router(allocation_router, prefix="/api/allocations", tags=["Allocations"])
 
+    # Core WMS Workflow Routers
+    app.include_router(customer_router, prefix="/api/customers", tags=["Customers"])
+    app.include_router(sales_router, prefix="/api/sales-orders", tags=["Sales Orders"])
+    app.include_router(shipping_plan_router, prefix="/api/shipping-plans", tags=["Shipping Plans"])
+    app.include_router(packing_slip_router, prefix="/api/packing-slips", tags=["Packing Slips"])
+    app.include_router(picking_router, prefix="/api/picking", tags=["Warehouse - Picking"])
+    app.include_router(packing_router, prefix="/api/packing", tags=["Warehouse - Packing"])
+    app.include_router(shipment_router, prefix="/api/shipments", tags=["Shipping"])
+    app.include_router(carrier_router, prefix="/api/carriers", tags=["Carriers (Master Data)"])
+
 def create_app() -> FastAPI:
     """
     Application Factory: Membuat dan mengkonfigurasi instance FastAPI.
@@ -139,3 +157,6 @@ def create_app() -> FastAPI:
     
     print("✅ FastAPI app created and configured successfully.")
     return app
+
+# Dependency injectors and other utilities are defined in their own modules
+# such as app.dependencies and app.responses to avoid circular imports.

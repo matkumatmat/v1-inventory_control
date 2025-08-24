@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query, Body
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.sales import (
     SalesOrderSchema, SalesOrderCreateSchema, SalesOrderUpdateSchema,
@@ -12,7 +13,7 @@ sales_router = APIRouter()
 
 @sales_router.post(
     "/",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a new sales order"
 )
@@ -28,7 +29,7 @@ def create_sales_order(
 
 @sales_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of sales orders"
 )
 def get_all_sales_orders(
@@ -58,7 +59,7 @@ def get_all_sales_orders(
 
 @sales_router.get(
     "/{so_id}",
-    response_model=APIResponse,
+    
     summary="Get a single sales order with items"
 )
 def get_sales_order_by_id(
@@ -73,7 +74,7 @@ def get_sales_order_by_id(
 
 @sales_router.post(
     "/{so_id}/items",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Add an item to a sales order"
 )
@@ -90,7 +91,7 @@ def add_item_to_sales_order(
 
 @sales_router.put(
     "/items/{item_id}",
-    response_model=APIResponse,
+    
     summary="Update a sales order item"
 )
 def update_sales_order_item(
@@ -109,7 +110,7 @@ def update_sales_order_item(
 
 @sales_router.post(
     "/{so_id}/confirm",
-    response_model=APIResponse,
+    
     summary="Confirm a sales order"
 )
 def confirm_sales_order(
@@ -125,7 +126,7 @@ def confirm_sales_order(
 
 @sales_router.post(
     "/{so_id}/cancel",
-    response_model=APIResponse,
+    
     summary="Cancel a sales order"
 )
 def cancel_sales_order(

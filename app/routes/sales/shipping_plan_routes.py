@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query, Body
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.sales import ShippingPlanSchema, ShippingPlanUpdateSchema
 
@@ -9,7 +10,7 @@ shipping_plan_router = APIRouter()
 
 @shipping_plan_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of shipping plans"
 )
 def get_all_shipping_plans(
@@ -36,7 +37,7 @@ def get_all_shipping_plans(
 
 @shipping_plan_router.get(
     "/{plan_id}",
-    response_model=APIResponse,
+    
     summary="Get a single shipping plan with items"
 )
 def get_shipping_plan_by_id(
@@ -51,7 +52,7 @@ def get_shipping_plan_by_id(
 
 @shipping_plan_router.post(
     "/{plan_id}/confirm",
-    response_model=APIResponse,
+    
     summary="Confirm a shipping plan"
 )
 def confirm_shipping_plan(
@@ -67,7 +68,7 @@ def confirm_shipping_plan(
 
 @shipping_plan_router.post(
     "/{plan_id}/allocate",
-    response_model=APIResponse,
+    
     summary="Manually trigger allocation for a shipping plan"
 )
 def allocate_shipping_plan_items(

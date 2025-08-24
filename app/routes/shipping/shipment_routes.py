@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, status, Query, Body
 from typing import List, Optional, Dict, Any
 from datetime import date
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.shipment import ShipmentSchema
 
@@ -10,7 +11,7 @@ shipment_router = APIRouter()
 
 @shipment_router.post(
     "/",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a new shipment from a packing slip"
 )
@@ -31,7 +32,7 @@ def create_shipment(
 
 @shipment_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of shipments"
 )
 def get_all_shipments(
@@ -59,7 +60,7 @@ def get_all_shipments(
 
 @shipment_router.get(
     "/{shipment_id}",
-    response_model=APIResponse,
+    
     summary="Get a single shipment"
 )
 def get_shipment_by_id(
@@ -74,7 +75,7 @@ def get_shipment_by_id(
 
 @shipment_router.post(
     "/{shipment_id}/dispatch",
-    response_model=APIResponse,
+    
     summary="Dispatch a shipment"
 )
 def dispatch_shipment(
@@ -95,7 +96,7 @@ def dispatch_shipment(
 
 @shipment_router.post(
     "/{shipment_id}/confirm-delivery",
-    response_model=APIResponse,
+    
     summary="Confirm delivery of a shipment"
 )
 def confirm_shipment_delivery(
@@ -111,7 +112,7 @@ def confirm_shipment_delivery(
 
 @shipment_router.post(
     "/{shipment_id}/cancel",
-    response_model=APIResponse,
+    
     summary="Cancel a shipment"
 )
 def cancel_shipment(

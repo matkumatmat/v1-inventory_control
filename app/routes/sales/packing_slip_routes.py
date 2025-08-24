@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, Query
 from typing import List, Optional
 
-from app import APIResponse, get_service_registry
+from app.dependencies import get_service_registry
+from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.packing_slip import PackingSlipSchema, PackingSlipCreateSchema, PackingSlipUpdateSchema
 
@@ -9,7 +10,7 @@ packing_slip_router = APIRouter()
 
 @packing_slip_router.post(
     "/",
-    response_model=APIResponse,
+    
     status_code=status.HTTP_201_CREATED,
     summary="Create a new packing slip"
 )
@@ -26,7 +27,7 @@ def create_packing_slip(
 
 @packing_slip_router.get(
     "/",
-    response_model=APIResponse,
+    
     summary="Get a list of packing slips"
 )
 def get_all_packing_slips(
@@ -44,7 +45,7 @@ def get_all_packing_slips(
 
 @packing_slip_router.get(
     "/ready-for-shipment",
-    response_model=APIResponse,
+    
     summary="Get slips ready for shipment"
 )
 def get_slips_ready_for_shipment(
@@ -59,7 +60,7 @@ def get_slips_ready_for_shipment(
 
 @packing_slip_router.get(
     "/{ps_id}",
-    response_model=APIResponse,
+    
     summary="Get a single packing slip"
 )
 def get_packing_slip_by_id(
@@ -74,7 +75,7 @@ def get_packing_slip_by_id(
 
 @packing_slip_router.post(
     "/{ps_id}/finalize",
-    response_model=APIResponse,
+    
     summary="Finalize a packing slip"
 )
 def finalize_packing_slip(
