@@ -90,10 +90,10 @@ class AuthService(BaseService):
             'refresh_token': refresh_token,
             'token_type': 'Bearer',
             'expires_in': self.token_expiry_hours * 3600,  # seconds
-            'user': UserProfileSchema().dump(user)
+            'user': user
         }
         
-        return LoginResponseSchema().load(response_data)
+        return LoginResponseSchema.model_validate(response_data)
     
     @transactional
     @audit_log('LOGOUT', 'User')
@@ -101,9 +101,10 @@ class AuthService(BaseService):
                    ip_address: str = None, user_agent: str = None) -> bool:
         """Logout user dan invalidate session"""
         # Find session
-        session = self.db_session.query(UserSession).filter(
-            UserSession.session_id == session_id
-        ).first()
+        result = await self.db_session.execute(
+            select(UserSession).where(UserSession.session_id == session_id)
+        )
+        session = result.scalars().first()
         
         if session:
             # Deactivate session
@@ -116,7 +117,7 @@ class AuthService(BaseService):
         
         return True
     
-    def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
+    async def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
         """Refresh access token"""
         try:
             # Decode refresh token
@@ -130,22 +131,26 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid token type")
             
             # Validate session
-            session = self.db_session.query(UserSession).filter(
-                and_(
-                    UserSession.session_id == session_id,
-                    UserSession.user_id == user_id,
-                    UserSession.is_active == True,
-                    UserSession.expires_at > datetime.utcnow()
+            result = await self.db_session.execute(
+                select(UserSession).where(
+                    and_(
+                        UserSession.session_id == session_id,
+                        UserSession.user_id == user_id,
+                        UserSession.is_active == True,
+                        UserSession.expires_at > datetime.utcnow()
+                    )
                 )
-            ).first()
+            )
+            session = result.scalars().first()
             
             if not session:
                 raise AuthenticationError("Invalid or expired session")
             
             # Get user
-            user = self.db_session.query(User).filter(
-                and_(User.id == user_id, User.is_active == True)
-            ).first()
+            result = await self.db_session.execute(
+                select(User).where(and_(User.id == user_id, User.is_active == True))
+            )
+            user = result.scalars().first()
             
             if not user:
                 raise AuthenticationError("User not found or inactive")
@@ -164,7 +169,7 @@ class AuthService(BaseService):
         except jwt.InvalidTokenError:
             raise AuthenticationError("Invalid refresh token")
     
-    def verify_access_token(self, access_token: str) -> Dict[str, Any]:
+    async def verify_access_token(self, access_token: str) -> Dict[str, Any]:
         """Verify access token dan return user info"""
         try:
             # Decode token
@@ -178,22 +183,26 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid token type")
             
             # Validate session
-            session = self.db_session.query(UserSession).filter(
-                and_(
-                    UserSession.session_id == session_id,
-                    UserSession.user_id == user_id,
-                    UserSession.is_active == True,
-                    UserSession.expires_at > datetime.utcnow()
+            result = await self.db_session.execute(
+                select(UserSession).where(
+                    and_(
+                        UserSession.session_id == session_id,
+                        UserSession.user_id == user_id,
+                        UserSession.is_active == True,
+                        UserSession.expires_at > datetime.utcnow()
+                    )
                 )
-            ).first()
+            )
+            session = result.scalars().first()
             
             if not session:
                 raise AuthenticationError("Invalid or expired session")
             
             # Get user
-            user = self.db_session.query(User).filter(
-                and_(User.id == user_id, User.is_active == True)
-            ).first()
+            result = await self.db_session.execute(
+                select(User).where(and_(User.id == user_id, User.is_active == True))
+            )
+            user = result.scalars().first()
             
             if not user:
                 raise AuthenticationError("User not found or inactive")
@@ -213,10 +222,11 @@ class AuthService(BaseService):
         except jwt.InvalidTokenError:
             raise AuthenticationError("Invalid access token")
     
-    def check_permission(self, user_id: int, required_role: str = None,
+    async def check_permission(self, user_id: int, required_role: str = None,
                         required_permissions: List[str] = None) -> bool:
         """Check user permissions"""
-        user = self.db_session.query(User).filter(User.id == user_id).first()
+        result = await self.db_session.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
         
         if not user or not user.is_active:
             return False
@@ -239,9 +249,9 @@ class AuthService(BaseService):
         
         return True
     
-    def require_permission(self, user_id: int, required_role: str = None) -> bool:
+    async def require_permission(self, user_id: int, required_role: str = None) -> bool:
         """Require permission atau raise exception"""
-        if not self.check_permission(user_id, required_role):
+        if not await self.check_permission(user_id, required_role):
             raise AuthorizationError(f"Insufficient permissions. Required role: {required_role}")
         return True
     
@@ -281,7 +291,7 @@ class AuthService(BaseService):
         
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
     
-    def _create_user_session(self, user: User, ip_address: str = None,
+    async def _create_user_session(self, user: User, ip_address: str = None,
                            user_agent: str = None, remember_me: bool = False) -> Dict[str, Any]:
         """Create user session"""
         session_id = secrets.token_urlsafe(32)
@@ -304,7 +314,7 @@ class AuthService(BaseService):
         )
         
         self.db_session.add(session)
-        self.db_session.flush()
+        await self.db_session.flush()
         
         # Update user current session
         user.current_session_id = session_id
@@ -315,7 +325,7 @@ class AuthService(BaseService):
             'expires_at': expires_at
         }
     
-    def _handle_failed_login(self, user: User, ip_address: str = None):
+    async def _handle_failed_login(self, user: User, ip_address: str = None):
         """Handle failed login attempt"""
         user.failed_login_attempts += 1
         
@@ -327,19 +337,19 @@ class AuthService(BaseService):
         self._set_audit_fields(user, is_update=True)
         
         # Log failed attempt
-        self._log_failed_login(user.username, ip_address, 'INVALID_PASSWORD')
+        await self._log_failed_login(user.username, ip_address, 'INVALID_PASSWORD')
     
-    def _log_failed_login(self, username: str, ip_address: str = None, reason: str = None):
+    async def _log_failed_login(self, username: str, ip_address: str = None, reason: str = None):
         """Log failed login attempt"""
         if self.audit_service:
-            self.audit_service.log_security_event(
+            await self.audit_service.log_security_event(
                 event_type='FAILED_LOGIN',
                 username=username,
                 ip_address=ip_address,
                 details={'reason': reason}
             )
     
-    def _log_user_activity(self, user_id: int, activity_type: str,
+    async def _log_user_activity(self, user_id: int, activity_type: str,
                           ip_address: str = None, user_agent: str = None):
         """Log user activity"""
         activity = UserActivity(

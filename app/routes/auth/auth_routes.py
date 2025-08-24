@@ -75,7 +75,7 @@ async def refresh_token(
     - access_token: New JWT access token
     """
     try:
-        token_result = service_registry.auth_service.refresh_access_token(
+        token_result = await service_registry.auth_service.refresh_access_token(
             refresh_token=refresh_data.refresh_token
         )
         
@@ -101,7 +101,7 @@ async def logout(
     """
     try:
         # Extract session info from token
-        token_data = service_registry.auth_service.verify_access_token(
+        token_data = await service_registry.auth_service.verify_access_token(
             credentials.credentials
         )
         
@@ -135,7 +135,7 @@ async def get_current_user_profile(
     """
     try:
         # Verify token and get user info
-        token_data = service_registry.auth_service.verify_access_token(
+        token_data = await service_registry.auth_service.verify_access_token(
             credentials.credentials
         )
         
@@ -171,7 +171,7 @@ async def change_password(
     """
     try:
         # Verify token
-        token_data = service_registry.auth_service.verify_access_token(
+        token_data = await service_registry.auth_service.verify_access_token(
             credentials.credentials
         )
         
@@ -257,7 +257,7 @@ async def verify_token(
     Verify if access token is valid
     """
     try:
-        token_data = service_registry.auth_service.verify_access_token(
+        token_data = await service_registry.auth_service.verify_access_token(
             credentials.credentials
         )
         

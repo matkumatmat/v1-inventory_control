@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 User Domain Schemas
 ===================
@@ -282,20 +283,22 @@ class UserActivitySchema(BaseModel):
     user: Optional[UserSchema]
 
 # Response schemas
+class UserProfileSchema(UserSchema):
+    """Schema untuk user profile (limited fields)"""
+    class Config:
+        exclude = ('password_hash', 'failed_login_attempts', 'locked_until', 'current_session_id',
+                  'is_locked', 'must_change_password', 'password_expires_at')
+
 class LoginResponseSchema(BaseModel):
     """Schema untuk login response"""
     access_token: str
     refresh_token: str
     token_type: str = 'Bearer'
     expires_in: int
-    user: UserSchema
+    user: 'UserProfileSchema'
 
 class TokenRefreshSchema(BaseModel):
     """Schema untuk refresh token"""
     refresh_token: str
 
-class UserProfileSchema(UserSchema):
-    """Schema untuk user profile (limited fields)"""
-    class Config:
-        exclude = ('password_hash', 'failed_login_attempts', 'locked_until', 'current_session_id',
-                  'is_locked', 'must_change_password', 'password_expires_at')
+LoginResponseSchema.model_rebuild()

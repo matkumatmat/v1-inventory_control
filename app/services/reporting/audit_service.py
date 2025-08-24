@@ -9,7 +9,7 @@ import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, desc
+from sqlalchemy import and_, func, desc, select
 
 from ..base import BaseService, transactional
 from ...models import AuditLog, UserActivity
@@ -32,7 +32,8 @@ class AuditService(BaseService):
         # If user_id is not provided, try to find it by username
         if user_id is None and username:
             from ...models import User  # Avoid circular import
-            user = self.db_session.query(User).filter(User.username == username).first()
+            result = await self.db_session.execute(select(User).filter(User.username == username))
+            user = result.scalars().first()
             if user:
                 user_id = user.id
 
@@ -89,19 +90,19 @@ class AuditService(BaseService):
                        per_page: int = 50) -> Dict[str, Any]:
         """Get audit trail with filters"""
         
-        query = self.db_session.query(AuditLog)
+        query = select(AuditLog)
         
         # Apply filters
         if entity_type:
-            query = query.filter(AuditLog.entity_type == entity_type)
+            query = query.where(AuditLog.entity_type == entity_type)
         if entity_id:
-            query = query.filter(AuditLog.entity_id == entity_id)
+            query = query.where(AuditLog.entity_id == entity_id)
         if user_id:
-            query = query.filter(AuditLog.user_id == user_id)
+            query = query.where(AuditLog.user_id == user_id)
         if start_date:
-            query = query.filter(AuditLog.timestamp >= start_date)
+            query = query.where(AuditLog.timestamp >= start_date)
         if end_date:
-            query = query.filter(AuditLog.timestamp <= end_date)
+            query = query.where(AuditLog.timestamp <= end_date)
         
         # Order by timestamp descending
         query = query.order_by(AuditLog.timestamp.desc())
@@ -135,20 +136,26 @@ class AuditService(BaseService):
         """Generate compliance report"""
         
         # Get audit logs for period
-        audit_logs = await self.db_session.query(AuditLog).filter(
-            and_(
-                AuditLog.timestamp >= start_date,
-                AuditLog.timestamp <= end_date
+        result = await self.db_session.execute(
+            select(AuditLog).where(
+                and_(
+                    AuditLog.timestamp >= start_date,
+                    AuditLog.timestamp <= end_date
+                )
             )
-        ).all()
+        )
+        audit_logs = result.scalars().all()
         
         # Get user activities for period
-        user_activities = await self.db_session.query(UserActivity).filter(
-            and_(
-                UserActivity.timestamp >= start_date,
-                UserActivity.timestamp <= end_date
+        result = await self.db_session.execute(
+            select(UserActivity).where(
+                and_(
+                    UserActivity.timestamp >= start_date,
+                    UserActivity.timestamp <= end_date
+                )
             )
-        ).all()
+        )
+        user_activities = result.scalars().all()
         
         # Analysis
         total_actions = len(audit_logs)
@@ -248,20 +255,26 @@ class AuditService(BaseService):
         start_date = datetime.utcnow() - timedelta(days=days)
         
         # Get audit logs for user
-        user_logs = await self.db_session.query(AuditLog).filter(
-            and_(
-                AuditLog.user_id == user_id,
-                AuditLog.timestamp >= start_date
+        result = await self.db_session.execute(
+            select(AuditLog).where(
+                and_(
+                    AuditLog.user_id == user_id,
+                    AuditLog.timestamp >= start_date
+                )
             )
-        ).all()
+        )
+        user_logs = result.scalars().all()
         
         # Get user activities
-        activities = await self.db_session.query(UserActivity).filter(
-            and_(
-                UserActivity.user_id == user_id,
-                UserActivity.timestamp >= start_date
+        result = await self.db_session.execute(
+            select(UserActivity).where(
+                and_(
+                    UserActivity.user_id == user_id,
+                    UserActivity.timestamp >= start_date
+                )
             )
-        ).all()
+        )
+        activities = result.scalars().all()
         
         # Analysis
         total_actions = len(user_logs)
