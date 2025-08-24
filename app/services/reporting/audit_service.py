@@ -25,15 +25,23 @@ class AuditService(BaseService):
                   action: str, request_id: str = None,
                   old_values: Dict[str, Any] = None,
                   new_values: Dict[str, Any] = None,
-                  user_id: int = None) -> int:
+                  user_id: int = None,
+                  username: str = None) -> int:
         """Log audit action"""
         
+        # If user_id is not provided, try to find it by username
+        if user_id is None and username:
+            from ...models import User  # Avoid circular import
+            user = self.db_session.query(User).filter(User.username == username).first()
+            if user:
+                user_id = user.id
+
         audit_log = AuditLog(
             entity_type=entity_type,
             entity_id=entity_id if entity_id is not None else -1,
             action=action,
             user_id=user_id,
-            username=self.current_user,
+            username=username or self.current_user,
             timestamp=datetime.utcnow(),
             request_id=request_id,
             old_values=json.dumps(old_values) if old_values else None,
@@ -67,6 +75,7 @@ class AuditService(BaseService):
             entity_type='SECURITY',
             entity_id=None,
             action=event_type,
+            username=username,
             new_values={
                 'username': username,
                 'ip_address': ip_address,

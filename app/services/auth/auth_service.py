@@ -12,7 +12,7 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func, desc, asc
+from sqlalchemy import and_, or_, func, desc, asc, select
 
 
 from ..base import BaseService, transactional, audit_log
@@ -31,21 +31,14 @@ class AuthService(BaseService):
         self.token_expiry_hours = 8  # 8 hours
         self.refresh_token_expiry_days = 30  # 30 days
     
-    @transactional
     @audit_log('LOGIN', 'User')
     async def authenticate_user(self, username: str, password: str, 
                          ip_address: str = None, user_agent: str = None,
                          remember_me: bool = False) -> Dict[str, Any]:
         """Authenticate user dan create session"""
-        # Validate input
-        login_data = LoginSchema().load({
-            'username': username,
-            'password': password,
-            'remember_me': remember_me
-        })
-        
         # Find user
-        user = self.db_session.query(User).filter(User.username == username).first()
+        result = await self.db_session.execute(select(User).filter(User.username == username))
+        user = result.scalars().first()
         
         if not user:
             await self._log_failed_login(username, ip_address, 'USER_NOT_FOUND')
