@@ -36,7 +36,7 @@ from .routes.shipping.carrier_type_routes import carrier_type_router
 from .routes.system.status_type_routes import status_type_router
 #from .routes.system.priority_level_routes import priority_level_router
 #from .routes.system.notification_type_routes import notification_type_router
-#from .routes.warehouse.location_type_routes import location_type_router
+from .routes.warehouse.location_type_routes import location_type_router
 
 # Import services dan dependencies
 from .services import ServiceRegistry, create_service_registry
@@ -146,7 +146,7 @@ def setup_routes(app: FastAPI):
     app.include_router(status_type_router, prefix="/api/status-types", tags=["Status Types (Master Data)"])
     #app.include_router(priority_level_router, prefix="/api/priority-levels", tags=["Priority Levels (Master Data)"])
     #app.include_router(notification_type_router, prefix="/api/notification-types", tags=["Notification Types (Master Data)"])
-    #app.include_router(location_type_router, prefix="/api/location-types", tags=["Location Types (Master Data)"])
+    app.include_router(location_type_router, prefix="/api/location-types", tags=["Location Types (Master Data)"])
 
 def create_app() -> FastAPI:
     """
