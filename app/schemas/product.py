@@ -579,3 +579,12 @@ class AllocationUpdateSchema(AllocationSchema):
 class StockMovementCreateSchema(StockMovementSchema):
     class Config:
         exclude = ('id', 'public_id', 'movement_number', 'created_date', 'created_by')
+
+class StockMovementUpdateSchema(StockMovementSchema):
+    allocation_id: Optional[int]
+    movement_type_id: Optional[int]
+    quantity: Optional[int]
+    movement_date: Optional[datetime]
+
+    class Config:
+        exclude = ('id', 'public_id', 'movement_number', 'created_date', 'created_by')

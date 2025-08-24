@@ -15,13 +15,14 @@ from sqlalchemy import and_, func
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, NotFoundError
 from ...models import ShipmentTracking, Shipment
-from ...schemas import ShipmentTrackingSchema, ShipmentTrackingCreateSchema
+from ...schemas import ShipmentTrackingSchema, ShipmentTrackingCreateSchema, ShipmentTrackingUpdateSchema
 
 class ShipmentTrackingService(CRUDService):
     """Service untuk Shipment Tracking management"""
     
     model_class = ShipmentTracking
     create_schema = ShipmentTrackingCreateSchema
+    update_schema = ShipmentTrackingUpdateSchema
     response_schema = ShipmentTrackingSchema
     
     @transactional

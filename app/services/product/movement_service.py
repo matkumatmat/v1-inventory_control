@@ -13,13 +13,14 @@ from sqlalchemy import and_, func, desc
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, NotFoundError
 from ...models import StockMovement, MovementType, Allocation, Rack
-from ...schemas import StockMovementSchema, StockMovementCreateSchema
+from ...schemas import StockMovementSchema, StockMovementCreateSchema, StockMovementUpdateSchema
 
 class StockMovementService(CRUDService):
     """Service untuk Stock Movement tracking"""
     
     model_class = StockMovement
     create_schema = StockMovementCreateSchema
+    update_schema = StockMovementUpdateSchema
     response_schema = StockMovementSchema
     search_fields = ['movement_number', 'reference_number']
     

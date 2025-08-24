@@ -28,7 +28,7 @@ from .product import (
     ProductSchema, ProductCreateSchema, ProductUpdateSchema,
     BatchSchema, BatchCreateSchema, BatchUpdateSchema,
     AllocationSchema, AllocationCreateSchema, AllocationUpdateSchema,
-    StockMovementSchema, StockMovementCreateSchema
+    StockMovementSchema, StockMovementCreateSchema, StockMovementUpdateSchema
 )
 
 # ==================== CUSTOMER DOMAIN ====================
@@ -107,7 +107,7 @@ from .consignment import (
 from .user import (
     UserSchema, UserCreateSchema, UserUpdateSchema, UserProfileSchema,
     PasswordChangeSchema, LoginSchema, LoginResponseSchema, TokenRefreshSchema,
-    UserSessionSchema, UserActivitySchema
+    UserSessionSchema, UserActivitySchema, UserSessionCreateSchema, UserSessionUpdateSchema
 )
 
 # ==================== HELPER DOMAIN ====================
@@ -146,7 +146,7 @@ __all__ = [
     'ProductSchema', 'ProductCreateSchema', 'ProductUpdateSchema',
     'BatchSchema', 'BatchCreateSchema', 'BatchUpdateSchema',
     'AllocationSchema', 'AllocationCreateSchema', 'AllocationUpdateSchema',
-    'StockMovementSchema', 'StockMovementCreateSchema',
+    'StockMovementSchema', 'StockMovementCreateSchema','StockMovementUpdateSchema',
     
     # Customer domain
     'SectorTypeSchema', 'SectorTypeCreateSchema', 'SectorTypeUpdateSchema',
@@ -201,7 +201,7 @@ __all__ = [
     # User domain
     'UserSchema', 'UserCreateSchema', 'UserUpdateSchema', 'UserProfileSchema',
     'PasswordChangeSchema', 'LoginSchema', 'LoginResponseSchema', 'TokenRefreshSchema',
-    'UserSessionSchema', 'UserActivitySchema',
+    'UserSessionSchema', 'UserActivitySchema','UserSessionCreateSchema', 'UserSessionUpdateSchema'
     
     # Helper domain
     'BaseEnumSchema', 'BaseEnumCreateSchema', 'BaseEnumUpdateSchema',

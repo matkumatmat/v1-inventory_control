@@ -250,6 +250,23 @@ class UserSessionSchema(BaseModel):
             raise ValueError("invalid logout reason")
         return v
 
+class UserSessionCreateSchema(UserSessionSchema):
+    class Config:
+        exclude = ('id', 'created_at', 'last_activity', 'expires_at', 'is_active', 'logout_reason')
+
+class UserSessionUpdateSchema(UserSessionSchema):
+    session_id: Optional[str]
+    user_id: Optional[int]
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    last_activity: Optional[datetime]
+    expires_at: Optional[datetime]
+    is_active: Optional[bool]
+    logout_reason: Optional[str]
+    
+    class Config:
+        exclude = ('id', 'created_at')
+
 class UserActivitySchema(BaseModel):
     """Schema untuk UserActivity model"""
     user_id: int

@@ -13,12 +13,14 @@ from sqlalchemy import and_, func
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, NotFoundError
 from ...models import UserSession, User
-from ...schemas import UserSessionSchema
+from ...schemas import UserSessionSchema, UserSessionCreateSchema, UserSessionUpdateSchema
 
 class UserSessionService(CRUDService):
     """Service untuk User Session management"""
     
     model_class = UserSession
+    create_schema = UserSessionCreateSchema
+    update_schema = UserSessionUpdateSchema
     response_schema = UserSessionSchema
     
     def get_active_sessions(self, user_id: int = None) -> List[Dict[str, Any]]:
