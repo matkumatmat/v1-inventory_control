@@ -6,9 +6,9 @@ from app.responses import APIResponse
 from app.services import ServiceRegistry
 from app.schemas.product_type import ProductTypeSchema, ProductTypeCreateSchema, ProductTypeUpdateSchema
 
-product_type_router = APIRouter()
+router = APIRouter()
 
-@product_type_router.post(
+@router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new product type"
@@ -20,7 +20,7 @@ def create_product_type(
     new_item = services.product_type.create(data.dict())
     return APIResponse.success(data=new_item, message="Product Type created successfully")
 
-@product_type_router.get(
+@router.get(
     "/",
     summary="Get a list of product types"
 )
@@ -32,7 +32,7 @@ def get_all_product_types(
     items, total = services.product_type.get_paginated(page=page, per_page=per_page)
     return APIResponse.paginated(data=items, total=total, page=page, per_page=per_page)
 
-@product_type_router.get(
+@router.get(
     "/{item_id}",
     summary="Get a single product type"
 )
@@ -43,7 +43,7 @@ def get_product_type_by_id(
     item = services.product_type.get(item_id)
     return APIResponse.success(data=item)
 
-@product_type_router.put(
+@router.put(
     "/{item_id}",
     summary="Update a product type"
 )
@@ -58,7 +58,7 @@ def update_product_type(
     )
     return APIResponse.success(data=updated_item, message="Product Type updated successfully")
 
-@product_type_router.delete(
+@router.delete(
     "/{item_id}",
     summary="Delete a product type"
 )
