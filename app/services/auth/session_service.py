@@ -25,7 +25,7 @@ class UserSessionService(CRUDService):
     
     def get_active_sessions(self, user_id: int = None) -> List[Dict[str, Any]]:
         """Get active sessions"""
-        query = self.db.query(UserSession).filter(
+        query = self.db_session.query(UserSession).filter(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
@@ -42,7 +42,7 @@ class UserSessionService(CRUDService):
     @audit_log('TERMINATE_SESSION', 'UserSession')
     def terminate_session(self, session_id: str, reason: str = 'ADMIN') -> bool:
         """Terminate specific session"""
-        session = self.db.query(UserSession).filter(
+        session = self.db_session.query(UserSession).filter(
             UserSession.session_id == session_id
         ).first()
         
@@ -58,7 +58,7 @@ class UserSessionService(CRUDService):
     @audit_log('CLEANUP_SESSIONS', 'UserSession')
     def cleanup_expired_sessions(self) -> int:
         """Cleanup expired sessions"""
-        expired_sessions = self.db.query(UserSession).filter(
+        expired_sessions = self.db_session.query(UserSession).filter(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at <= datetime.utcnow()
@@ -76,7 +76,7 @@ class UserSessionService(CRUDService):
     def get_session_statistics(self) -> Dict[str, Any]:
         """Get session statistics"""
         # Active sessions
-        active_sessions = self.db.query(UserSession).filter(
+        active_sessions = self.db_session.query(UserSession).filter(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
@@ -85,12 +85,12 @@ class UserSessionService(CRUDService):
         
         # Sessions today
         today = datetime.utcnow().date()
-        sessions_today = self.db.query(UserSession).filter(
+        sessions_today = self.db_session.query(UserSession).filter(
             func.date(UserSession.created_at) == today
         ).count()
         
         # Unique users today
-        unique_users_today = self.db.query(UserSession.user_id).filter(
+        unique_users_today = self.db_session.query(UserSession.user_id).filter(
             func.date(UserSession.created_at) == today
         ).distinct().count()
         

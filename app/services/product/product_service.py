@@ -13,7 +13,9 @@ from ..exceptions import ValidationError, ConflictError, NotFoundError
 from ...models import Product, ProductType, PackageType, TemperatureType
 from ...schemas import (
     ProductSchema, ProductCreateSchema, ProductUpdateSchema,
-    ProductTypeSchema, PackageTypeSchema, TemperatureTypeSchema, 
+    ProductTypeSchema, ProductTypeCreateSchema, ProductTypeUpdateSchema,
+    PackageTypeSchema, PackageTypeCreateSchema, PackageTypeUpdateSchema,
+    TemperatureTypeSchema, TemperatureTypeCreateSchema, TemperatureTypeUpdateSchema,
 )
 
 class ProductService(CRUDService):
@@ -150,6 +152,8 @@ class ProductTypeService(CRUDService):
     """Service untuk ProductType management"""
     
     model_class = ProductType
+    create_schema = ProductTypeCreateSchema
+    update_schema = ProductTypeUpdateSchema
     response_schema = ProductTypeSchema
     search_fields = ['name', 'code']
 
@@ -157,6 +161,8 @@ class PackageTypeService(CRUDService):
     """Service untuk PackageType management"""
     
     model_class = PackageType
+    create_schema = PackageTypeCreateSchema
+    update_schema = PackageTypeUpdateSchema
     response_schema = PackageTypeSchema
     search_fields = ['name', 'code']
 
@@ -164,5 +170,7 @@ class TemperatureTypeService(CRUDService):
     """Service untuk TemperatureType management"""
     
     model_class = TemperatureType
+    create_schema = TemperatureTypeCreateSchema
+    update_schema = TemperatureTypeUpdateSchema
     response_schema = TemperatureTypeSchema
     search_fields = ['name', 'code']

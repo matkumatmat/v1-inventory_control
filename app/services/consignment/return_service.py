@@ -135,7 +135,7 @@ class ConsignmentReturnService(CRUDService):
     
     def get_returns_by_consignment(self, consignment_id: int) -> List[Dict[str, Any]]:
         """Get all returns untuk consignment"""
-        returns = self.db.query(ConsignmentReturn).filter(
+        returns = self.db_session.query(ConsignmentReturn).filter(
             ConsignmentReturn.consignment_id == consignment_id
         ).order_by(ConsignmentReturn.return_date.desc()).all()
         
@@ -146,7 +146,7 @@ class ConsignmentReturnService(CRUDService):
         today = date.today()
         prefix = f"CRT{today.strftime('%y%m%d')}"
         
-        last_return = self.db.query(ConsignmentReturn).filter(
+        last_return = self.db_session.query(ConsignmentReturn).filter(
             ConsignmentReturn.return_number.like(f"{prefix}%")
         ).order_by(ConsignmentReturn.id.desc()).first()
         

@@ -148,7 +148,7 @@ class TenderContractService(CRUDService):
             raise BusinessRuleError("Contract is already completed")
         
         # Check if all reservations are fulfilled
-        pending_reservations = self.db.query(ContractReservation).filter(
+        pending_reservations = self.db_session.query(ContractReservation).filter(
             and_(
                 ContractReservation.contract_id == contract_id,
                 ContractReservation.remaining_quantity > 0
@@ -172,7 +172,7 @@ class TenderContractService(CRUDService):
     
     def get_by_contract_number(self, contract_number: str) -> Dict[str, Any]:
         """Get contract by contract number"""
-        contract = self.db.query(TenderContract).filter(
+        contract = self.db_session.query(TenderContract).filter(
             TenderContract.contract_number == contract_number
         ).first()
         
@@ -184,7 +184,7 @@ class TenderContractService(CRUDService):
     def get_active_contracts(self, include_expiring: bool = True, 
                            days_ahead: int = 30) -> List[Dict[str, Any]]:
         """Get active contracts"""
-        query = self.db.query(TenderContract).filter(
+        query = self.db_session.query(TenderContract).filter(
             TenderContract.status == 'ACTIVE'
         )
         
@@ -220,7 +220,7 @@ class TenderContractService(CRUDService):
         """Get contracts yang akan expire"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(TenderContract).filter(
+        query = self.db_session.query(TenderContract).filter(
             and_(
                 TenderContract.status == 'ACTIVE',
                 TenderContract.end_date <= cutoff_date,
@@ -244,12 +244,12 @@ class TenderContractService(CRUDService):
         contract = self._get_or_404(TenderContract, contract_id)
         
         # Get all reservations
-        reservations = self.db.query(ContractReservation).filter(
+        reservations = self.db_session.query(ContractReservation).filter(
             ContractReservation.contract_id == contract_id
         ).all()
         
         # Get all allocations for this contract
-        allocations = self.db.query(Allocation).filter(
+        allocations = self.db_session.query(Allocation).filter(
             Allocation.tender_contract_id == contract_id
         ).all()
         
@@ -303,13 +303,13 @@ class TenderContractService(CRUDService):
     
     def _contract_has_reservations(self, contract_id: int) -> bool:
         """Check if contract has any reservations"""
-        return self.db.query(ContractReservation).filter(
+        return self.db_session.query(ContractReservation).filter(
             ContractReservation.contract_id == contract_id
         ).count() > 0
     
     def _get_contract_reservation_summary(self, contract_id: int) -> Dict[str, Any]:
         """Get reservation summary for contract"""
-        reservations = self.db.query(ContractReservation).filter(
+        reservations = self.db_session.query(ContractReservation).filter(
             ContractReservation.contract_id == contract_id
         ).all()
         

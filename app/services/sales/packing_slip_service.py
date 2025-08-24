@@ -95,7 +95,7 @@ class PackingSlipService(CRUDService):
     
     def get_by_ps_number(self, ps_number: str) -> Dict[str, Any]:
         """Get packing slip by PS number"""
-        ps = self.db.query(PackingSlip).filter(
+        ps = self.db_session.query(PackingSlip).filter(
             PackingSlip.ps_number == ps_number
         ).first()
         
@@ -106,7 +106,7 @@ class PackingSlipService(CRUDService):
     
     def get_ready_for_shipment(self) -> List[Dict[str, Any]]:
         """Get packing slips yang ready untuk shipment"""
-        query = self.db.query(PackingSlip).filter(
+        query = self.db_session.query(PackingSlip).filter(
             PackingSlip.status == 'FINALIZED'
         ).order_by(PackingSlip.finalized_date.asc())
         
@@ -116,7 +116,7 @@ class PackingSlipService(CRUDService):
     def get_ps_by_customer(self, customer_id: int, 
                           include_shipped: bool = False) -> List[Dict[str, Any]]:
         """Get packing slips untuk customer"""
-        query = self.db.query(PackingSlip).filter(
+        query = self.db_session.query(PackingSlip).filter(
             PackingSlip.customer_id == customer_id
         )
         

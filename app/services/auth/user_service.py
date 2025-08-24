@@ -89,21 +89,21 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('UPDATE', 'User')
-    def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update user dengan validation"""
-        user = self._get_or_404(User, entity_id)
+        user = await self._get_or_404(User, entity_id)
         
         # Validate username uniqueness if changed
         username = data.get('username')
         if username and username != user.username:
-            self._validate_unique_field(User, 'username', username,
+            await self._validate_unique_field(User, 'username', username,
                                       exclude_id=entity_id,
                                       error_message=f"Username '{username}' already exists")
         
         # Validate email uniqueness if changed
         email = data.get('email')
         if email and email != user.email:
-            self._validate_unique_field(User, 'email', email,
+            await self._validate_unique_field(User, 'email', email,
                                       exclude_id=entity_id,
                                       error_message=f"Email '{email}' already exists")
         
@@ -111,14 +111,14 @@ class UserService(CRUDService):
         if 'password' in data:
             del data['password']
         
-        return super().update(entity_id, data)
+        return await super().update(entity_id, data)
     
     @transactional
     @audit_log('CHANGE_PASSWORD', 'User')
-    def change_password(self, user_id: int, current_password: str, 
+    async def change_password(self, user_id: int, current_password: str, 
                        new_password: str) -> Dict[str, Any]:
         """Change user password"""
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         
         # Verify current password
         if not self._verify_password(current_password, user.password_hash):
@@ -128,7 +128,7 @@ class UserService(CRUDService):
         self._validate_password_strength(new_password)
         
         # Check password history (prevent reuse of last 5 passwords)
-        if self._is_password_reused(user_id, new_password):
+        if await self._is_password_reused(user_id, new_password):
             raise ValidationError("Cannot reuse recent passwords")
         
         # Update password
@@ -140,13 +140,13 @@ class UserService(CRUDService):
         user.locked_until = None
         
         # Invalidate all sessions (force re-login)
-        self._invalidate_user_sessions(user_id)
+        await self._invalidate_user_sessions(user_id)
         
         self._set_audit_fields(user, is_update=True)
         
         # Send notification
         if self.notification_service and user.email:
-            self.notification_service.send_password_changed_notification(
+            await self.notification_service.send_password_changed_notification(
                 email=user.email,
                 username=user.username
             )
@@ -155,10 +155,10 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('RESET_PASSWORD', 'User')
-    def reset_password(self, username_or_email: str) -> bool:
+    async def reset_password(self, username_or_email: str) -> bool:
         """Initiate password reset"""
         # Find user by username or email
-        user = self.db.query(User).filter(
+        user = self.db_session.query(User).filter(
             or_(User.username == username_or_email, User.email == username_or_email)
         ).first()
         
@@ -176,7 +176,7 @@ class UserService(CRUDService):
         
         # Send reset email
         if self.notification_service and user.email:
-            self.notification_service.send_password_reset_email(
+            await self.notification_service.send_password_reset_email(
                 email=user.email,
                 username=user.username,
                 reset_token=reset_token
@@ -186,10 +186,10 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('CONFIRM_RESET', 'User')
-    def confirm_password_reset(self, reset_token: str, new_password: str) -> Dict[str, Any]:
+    async def confirm_password_reset(self, reset_token: str, new_password: str) -> Dict[str, Any]:
         """Confirm password reset dengan token"""
         # Find user by reset token
-        user = self.db.query(User).filter(
+        user = self.db_session.query(User).filter(
             and_(
                 User.password_reset_token == reset_token,
                 User.password_reset_expires > datetime.utcnow()
@@ -213,7 +213,7 @@ class UserService(CRUDService):
         user.locked_until = None
         
         # Invalidate all sessions
-        self._invalidate_user_sessions(user.id)
+        await self._invalidate_user_sessions(user.id)
         
         self._set_audit_fields(user, is_update=True)
         
@@ -221,9 +221,9 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('ACTIVATE', 'User')
-    def activate_user(self, user_id: int) -> Dict[str, Any]:
+    async def activate_user(self, user_id: int) -> Dict[str, Any]:
         """Activate user account"""
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         
         user.is_active = True
         user.activated_at = datetime.utcnow()
@@ -234,9 +234,9 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('DEACTIVATE', 'User')
-    def deactivate_user(self, user_id: int, reason: str = None) -> Dict[str, Any]:
+    async def deactivate_user(self, user_id: int, reason: str = None) -> Dict[str, Any]:
         """Deactivate user account"""
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         
         user.is_active = False
         user.deactivated_at = datetime.utcnow()
@@ -246,7 +246,7 @@ class UserService(CRUDService):
             user.notes = f"Deactivated: {reason}. {user.notes or ''}"
         
         # Invalidate all sessions
-        self._invalidate_user_sessions(user_id)
+        await self._invalidate_user_sessions(user_id)
         
         self._set_audit_fields(user, is_update=True)
         
@@ -254,9 +254,9 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('UNLOCK', 'User')
-    def unlock_user(self, user_id: int) -> Dict[str, Any]:
+    async def unlock_user(self, user_id: int) -> Dict[str, Any]:
         """Unlock user account"""
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         
         user.is_locked = False
         user.locked_until = None
@@ -265,17 +265,17 @@ class UserService(CRUDService):
         
         return self.response_schema().dump(user)
     
-    def get_user_profile(self, user_id: int) -> Dict[str, Any]:
+    async def get_user_profile(self, user_id: int) -> Dict[str, Any]:
         """Get user profile with additional info"""
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         
         # Get recent activities
-        recent_activities = self.db.query(UserActivity).filter(
+        recent_activities = self.db_session.query(UserActivity).filter(
             UserActivity.user_id == user_id
         ).order_by(UserActivity.timestamp.desc()).limit(10).all()
         
         # Get active sessions
-        active_sessions = self.db.query(UserSession).filter(
+        active_sessions = self.db_session.query(UserSession).filter(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True,
@@ -302,19 +302,19 @@ class UserService(CRUDService):
         
         return user_data
     
-    def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
+    async def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
         """Get users by role"""
-        users = self.db.query(User).filter(
+        users = self.db_session.query(User).filter(
             and_(User.role == role, User.is_active == True)
         ).order_by(User.full_name.asc()).all()
         
         return self.response_schema(many=True).dump(users)
     
-    def get_user_activity_report(self, user_id: int = None, 
+    async def get_user_activity_report(self, user_id: int = None, 
                                start_date: datetime = None,
                                end_date: datetime = None) -> Dict[str, Any]:
         """Get user activity report"""
-        query = self.db.query(UserActivity)
+        query = self.db_session.query(UserActivity)
         
         if user_id:
             query = query.filter(UserActivity.user_id == user_id)
@@ -379,15 +379,15 @@ class UserService(CRUDService):
         if not any(c.isdigit() for c in password):
             raise ValidationError("Password must contain at least one number")
     
-    def _is_password_reused(self, user_id: int, new_password: str) -> bool:
+    async def _is_password_reused(self, user_id: int, new_password: str) -> bool:
         """Check if password was recently used"""
         # Simple implementation - in production, store password history
-        user = self._get_or_404(User, user_id)
+        user = await self._get_or_404(User, user_id)
         return self._verify_password(new_password, user.password_hash)
     
-    def _invalidate_user_sessions(self, user_id: int):
+    async def _invalidate_user_sessions(self, user_id: int):
         """Invalidate all user sessions"""
-        sessions = self.db.query(UserSession).filter(
+        sessions = self.db_session.query(UserSession).filter(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True

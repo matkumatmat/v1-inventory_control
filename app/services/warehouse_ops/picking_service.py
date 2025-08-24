@@ -67,11 +67,11 @@ class PickingListService(CRUDService):
         picking_list = PickingList(**validated_data)
         self._set_audit_fields(picking_list)
         
-        self.db.add(picking_list)
-        self.db.flush()
+        self.db_session.add(picking_list)
+        self.db_session.flush()
         
         # Create picking list items dari shipping plan items
-        shipping_plan_items = self.db.query(ShippingPlanItem).filter(
+        shipping_plan_items = self.db_session.query(ShippingPlanItem).filter(
             ShippingPlanItem.shipping_plan_id == shipping_plan_id
         ).all()
         
@@ -104,12 +104,12 @@ class PickingListService(CRUDService):
                 picking_item = PickingListItem(**validated_item_data)
                 self._set_audit_fields(picking_item)
                 
-                self.db.add(picking_item)
+                self.db_session.add(picking_item)
                 created_items.append(picking_item)
                 
                 sp_item.planned_quantity -= pick_qty
         
-        self.db.flush()
+        self.db_session.flush()
         
         # Update picking list totals
         self._update_picking_list_totals(picking_list.id)
@@ -179,7 +179,7 @@ class PickingListService(CRUDService):
             raise PickingError(f"Can only complete in-progress picking lists. Current status: {picking_list.status}")
         
         # Validate all items are picked
-        unpicked_items = self.db.query(PickingListItem).filter(
+        unpicked_items = self.db_session.query(PickingListItem).filter(
             and_(
                 PickingListItem.picking_list_id == picking_list_id,
                 PickingListItem.quantity_picked < PickingListItem.quantity_to_pick
@@ -252,7 +252,7 @@ class PickingListService(CRUDService):
         """Get picking list dengan all items"""
         picking_list = self._get_or_404(PickingList, picking_list_id)
         
-        items = self.db.query(PickingListItem).filter(
+        items = self.db_session.query(PickingListItem).filter(
             PickingListItem.picking_list_id == picking_list_id
         ).order_by(PickingListItem.rack_location.asc()).all()
         
@@ -263,7 +263,7 @@ class PickingListService(CRUDService):
     
     def get_pending_picking_lists(self, picker_user_id: str = None) -> List[Dict[str, Any]]:
         """Get pending picking lists"""
-        query = self.db.query(PickingList).filter(
+        query = self.db_session.query(PickingList).filter(
             PickingList.status.in_(['PENDING', 'ASSIGNED'])
         )
         
@@ -278,7 +278,7 @@ class PickingListService(CRUDService):
     def get_picker_workload(self, picker_user_id: str) -> Dict[str, Any]:
         """Get workload untuk picker"""
         # Current active picking lists
-        active_lists = self.db.query(PickingList).filter(
+        active_lists = self.db_session.query(PickingList).filter(
             and_(
                 PickingList.picker_user_id == picker_user_id,
                 PickingList.status.in_(['ASSIGNED', 'IN_PROGRESS'])
@@ -287,7 +287,7 @@ class PickingListService(CRUDService):
         
         # Completed today
         today = date.today()
-        completed_today = self.db.query(PickingList).filter(
+        completed_today = self.db_session.query(PickingList).filter(
             and_(
                 PickingList.picker_user_id == picker_user_id,
                 PickingList.status == 'COMPLETED',
@@ -311,7 +311,7 @@ class PickingListService(CRUDService):
         today = date.today()
         prefix = f"PL{today.strftime('%y%m%d')}"
         
-        last_picking_list = self.db.query(PickingList).filter(
+        last_picking_list = self.db_session.query(PickingList).filter(
             PickingList.picking_list_number.like(f"{prefix}%")
         ).order_by(PickingList.id.desc()).first()
         
@@ -329,7 +329,7 @@ class PickingListService(CRUDService):
         # Get rack allocations untuk product dengan available stock
         from ...models import Batch
         
-        query = self.db.query(RackAllocation).join(Allocation).join(Batch).join(Rack).filter(
+        query = self.db_session.query(RackAllocation).join(Allocation).join(Batch).join(Rack).filter(
             and_(
                 Batch.product_id == product_id,
                 Allocation.status == 'active',
@@ -358,7 +358,7 @@ class PickingListService(CRUDService):
     
     def _reserve_stock_for_picking(self, picking_list_id: int):
         """Reserve stock untuk picking"""
-        items = self.db.query(PickingListItem).filter(
+        items = self.db_session.query(PickingListItem).filter(
             PickingListItem.picking_list_id == picking_list_id
         ).all()
         
@@ -376,7 +376,7 @@ class PickingListService(CRUDService):
         """Update picking list totals"""
         picking_list = self._get_or_404(PickingList, picking_list_id)
         
-        items = self.db.query(PickingListItem).filter(
+        items = self.db_session.query(PickingListItem).filter(
             PickingListItem.picking_list_id == picking_list_id
         ).all()
         
@@ -458,7 +458,7 @@ class PickingOrderService(CRUDService):
             raise PickingError(f"Can only complete in-progress orders. Current status: {picking_order.status}")
         
         # Validate all items are processed
-        unprocessed_items = self.db.query(PickingOrderItem).filter(
+        unprocessed_items = self.db_session.query(PickingOrderItem).filter(
             and_(
                 PickingOrderItem.picking_order_id == picking_order_id,
                 PickingOrderItem.quantity_picked == 0
@@ -479,7 +479,7 @@ class PickingOrderService(CRUDService):
         """Update picking order progress"""
         picking_order = self._get_or_404(PickingOrder, picking_order_id)
         
-        items = self.db.query(PickingOrderItem).filter(
+        items = self.db_session.query(PickingOrderItem).filter(
             PickingOrderItem.picking_order_id == picking_order_id
         ).all()
         

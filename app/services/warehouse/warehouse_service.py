@@ -49,7 +49,7 @@ class WarehouseService(CRUDService):
     
     def get_by_code(self, warehouse_code: str) -> Dict[str, Any]:
         """Get warehouse by code"""
-        warehouse = self.db.query(Warehouse).filter(
+        warehouse = self.db_session.query(Warehouse).filter(
             Warehouse.warehouse_code == warehouse_code
         ).first()
         
@@ -63,7 +63,7 @@ class WarehouseService(CRUDService):
         warehouse = self._get_or_404(Warehouse, warehouse_id)
         
         # Get racks summary
-        racks_query = self.db.query(Rack).filter(
+        racks_query = self.db_session.query(Rack).filter(
             Rack.warehouse_id == warehouse_id
         )
         
@@ -90,7 +90,7 @@ class WarehouseService(CRUDService):
     
     def get_active_warehouses(self) -> List[Dict[str, Any]]:
         """Get all active warehouses"""
-        query = self.db.query(Warehouse).filter(
+        query = self.db_session.query(Warehouse).filter(
             Warehouse.is_active == True
         ).order_by(Warehouse.name.asc())
         

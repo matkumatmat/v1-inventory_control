@@ -263,7 +263,7 @@ class ERPService(BaseService):
             raise ValidationError("Product code is required")
         
         # Check if product exists
-        existing_product = self.db.query(Product).filter(
+        existing_product = self.db_session.query(Product).filter(
             Product.product_code == product_code
         ).first()
         
@@ -289,9 +289,9 @@ class ERPService(BaseService):
             # Create new product
             new_product = Product(**product_data)
             self._set_audit_fields(new_product)
-            self.db.add(new_product)
+            self.db_session.add(new_product)
         
-        self.db.flush()
+        self.db_session.flush()
     
     def _sync_single_customer(self, erp_customer: Dict[str, Any]):
         """Sync single customer dari ERP"""
@@ -300,7 +300,7 @@ class ERPService(BaseService):
             raise ValidationError("Customer code is required")
         
         # Check if customer exists
-        existing_customer = self.db.query(Customer).filter(
+        existing_customer = self.db_session.query(Customer).filter(
             Customer.customer_code == customer_code
         ).first()
         
@@ -325,9 +325,9 @@ class ERPService(BaseService):
             # Create new customer
             new_customer = Customer(**customer_data)
             self._set_audit_fields(new_customer)
-            self.db.add(new_customer)
+            self.db_session.add(new_customer)
         
-        self.db.flush()
+        self.db_session.flush()
     
     def _sync_single_sales_order(self, erp_order: Dict[str, Any]):
         """Sync single sales order dari ERP"""
@@ -336,7 +336,7 @@ class ERPService(BaseService):
             raise ValidationError("SO number is required")
         
         # Check if SO exists
-        existing_so = self.db.query(SalesOrder).filter(
+        existing_so = self.db_session.query(SalesOrder).filter(
             SalesOrder.so_number == so_number
         ).first()
         
@@ -381,5 +381,5 @@ class ERPService(BaseService):
             executed_at=datetime.utcnow()
         )
         
-        self.db.add(sync_log)
-        self.db.flush()
+        self.db_session.add(sync_log)
+        self.db_session.flush()

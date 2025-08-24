@@ -21,16 +21,16 @@ class AuditService(BaseService):
         super().__init__(db_session, current_user)
     
     @transactional
-    def log_action(self, entity_type: str, entity_id: Optional[int],
+    async def log_action(self, entity_type: str, entity_id: Optional[int],
                   action: str, request_id: str = None,
                   old_values: Dict[str, Any] = None,
                   new_values: Dict[str, Any] = None,
-                  duration_ms: int = None, user_id: int = None) -> int:
+                  user_id: int = None) -> int:
         """Log audit action"""
         
         audit_log = AuditLog(
             entity_type=entity_type,
-            entity_id=entity_id,
+            entity_id=entity_id if entity_id is not None else -1,
             action=action,
             user_id=user_id,
             username=self.current_user,
@@ -38,34 +38,32 @@ class AuditService(BaseService):
             request_id=request_id,
             old_values=json.dumps(old_values) if old_values else None,
             new_values=json.dumps(new_values) if new_values else None,
-            duration_ms=duration_ms
         )
         
-        self.db.add(audit_log)
-        self.db.flush()
+        self.db_session.add(audit_log)
+        await self.db_session.flush()
         
         return audit_log.id
     
     @transactional
-    def log_error(self, entity_type: str, action: str, error: str,
-                 request_id: str = None, duration_ms: int = None) -> int:
+    async def log_error(self, entity_type: str, action: str, error: str,
+                 request_id: str = None) -> int:
         """Log error/failure in audit"""
         
-        return self.log_action(
+        return await self.log_action(
             entity_type=entity_type,
             entity_id=None,
             action=f"{action}_FAILED",
             request_id=request_id,
             new_values={'error': error},
-            duration_ms=duration_ms
         )
     
     @transactional
-    def log_security_event(self, event_type: str, username: str = None,
+    async def log_security_event(self, event_type: str, username: str = None,
                           ip_address: str = None, details: Dict[str, Any] = None) -> int:
         """Log security-related events"""
         
-        return self.log_action(
+        return await self.log_action(
             entity_type='SECURITY',
             entity_id=None,
             action=event_type,
@@ -76,13 +74,13 @@ class AuditService(BaseService):
             }
         )
     
-    def get_audit_trail(self, entity_type: str = None, entity_id: int = None,
+    async def get_audit_trail(self, entity_type: str = None, entity_id: int = None,
                        user_id: int = None, start_date: datetime = None,
                        end_date: datetime = None, page: int = 1,
                        per_page: int = 50) -> Dict[str, Any]:
         """Get audit trail with filters"""
         
-        query = self.db.query(AuditLog)
+        query = self.db_session.query(AuditLog)
         
         # Apply filters
         if entity_type:
@@ -100,7 +98,7 @@ class AuditService(BaseService):
         query = query.order_by(AuditLog.timestamp.desc())
         
         # Paginate
-        result = self._paginate_query(query, page, per_page)
+        result = await self._paginate_query(query, page, per_page)
         
         # Convert to serializable format
         audit_logs = []
@@ -116,7 +114,6 @@ class AuditService(BaseService):
                 'request_id': log.request_id,
                 'old_values': json.loads(log.old_values) if log.old_values else None,
                 'new_values': json.loads(log.new_values) if log.new_values else None,
-                'duration_ms': log.duration_ms
             })
         
         return {
@@ -124,12 +121,12 @@ class AuditService(BaseService):
             'pagination': result['pagination']
         }
     
-    def generate_compliance_report(self, start_date: date, end_date: date,
+    async def generate_compliance_report(self, start_date: date, end_date: date,
                                  report_type: str = 'FULL') -> Dict[str, Any]:
         """Generate compliance report"""
         
         # Get audit logs for period
-        audit_logs = self.db.query(AuditLog).filter(
+        audit_logs = await self.db_session.query(AuditLog).filter(
             and_(
                 AuditLog.timestamp >= start_date,
                 AuditLog.timestamp <= end_date
@@ -137,7 +134,7 @@ class AuditService(BaseService):
         ).all()
         
         # Get user activities for period
-        user_activities = self.db.query(UserActivity).filter(
+        user_activities = await self.db_session.query(UserActivity).filter(
             and_(
                 UserActivity.timestamp >= start_date,
                 UserActivity.timestamp <= end_date
@@ -236,13 +233,13 @@ class AuditService(BaseService):
             }
         }
     
-    def get_user_activity_summary(self, user_id: int, days: int = 30) -> Dict[str, Any]:
+    async def get_user_activity_summary(self, user_id: int, days: int = 30) -> Dict[str, Any]:
         """Get user activity summary"""
         
         start_date = datetime.utcnow() - timedelta(days=days)
         
         # Get audit logs for user
-        user_logs = self.db.query(AuditLog).filter(
+        user_logs = await self.db_session.query(AuditLog).filter(
             and_(
                 AuditLog.user_id == user_id,
                 AuditLog.timestamp >= start_date
@@ -250,7 +247,7 @@ class AuditService(BaseService):
         ).all()
         
         # Get user activities
-        activities = self.db.query(UserActivity).filter(
+        activities = await self.db_session.query(UserActivity).filter(
             and_(
                 UserActivity.user_id == user_id,
                 UserActivity.timestamp >= start_date

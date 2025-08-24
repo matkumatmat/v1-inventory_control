@@ -132,6 +132,39 @@ class TemperatureTypeSchema(BaseSchema):
             raise ValueError('Min temperature cannot be greater than max temperature')
         return values
 
+class ProductTypeCreateSchema(ProductTypeSchema):
+    class Config:
+        exclude = ('id',)
+
+class ProductTypeUpdateSchema(ProductTypeSchema):
+    code: Optional[str]
+    name: Optional[str]
+    
+    class Config:
+        exclude = ('id',)
+
+class PackageTypeCreateSchema(PackageTypeSchema):
+    class Config:
+        exclude = ('id',)
+
+class PackageTypeUpdateSchema(PackageTypeSchema):
+    code: Optional[str]
+    name: Optional[str]
+    
+    class Config:
+        exclude = ('id',)
+
+class TemperatureTypeCreateSchema(TemperatureTypeSchema):
+    class Config:
+        exclude = ('id',)
+
+class TemperatureTypeUpdateSchema(TemperatureTypeSchema):
+    code: Optional[str]
+    name: Optional[str]
+    
+    class Config:
+        exclude = ('id',)
+
 class ProductSchema(BaseSchema, TimestampMixin, StatusMixin, ERPMixin):
     """Schema untuk Product model"""
     product_code: str

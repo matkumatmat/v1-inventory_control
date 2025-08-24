@@ -239,7 +239,7 @@ class ShipmentService(CRUDService):
     
     def get_by_shipment_number(self, shipment_number: str) -> Dict[str, Any]:
         """Get shipment by shipment number"""
-        shipment = self.db.query(Shipment).filter(
+        shipment = self.db_session.query(Shipment).filter(
             Shipment.shipment_number == shipment_number
         ).first()
         
@@ -250,7 +250,7 @@ class ShipmentService(CRUDService):
     
     def get_by_tracking_number(self, tracking_number: str) -> Dict[str, Any]:
         """Get shipment by tracking number"""
-        shipment = self.db.query(Shipment).filter(
+        shipment = self.db_session.query(Shipment).filter(
             Shipment.tracking_number == tracking_number
         ).first()
         
@@ -261,7 +261,7 @@ class ShipmentService(CRUDService):
     
     def get_pending_shipments(self, carrier_id: int = None) -> List[Dict[str, Any]]:
         """Get pending shipments"""
-        query = self.db.query(Shipment).filter(
+        query = self.db_session.query(Shipment).filter(
             Shipment.status == 'PENDING'
         )
         
@@ -277,7 +277,7 @@ class ShipmentService(CRUDService):
         """Get overdue shipments"""
         cutoff_date = date.today() - timedelta(days=days_overdue)
         
-        query = self.db.query(Shipment).filter(
+        query = self.db_session.query(Shipment).filter(
             and_(
                 Shipment.status.in_(['DISPATCHED', 'IN_TRANSIT']),
                 Shipment.estimated_delivery_date <= cutoff_date
@@ -299,7 +299,7 @@ class ShipmentService(CRUDService):
     def get_shipment_performance_report(self, start_date: date = None, 
                                       end_date: date = None) -> Dict[str, Any]:
         """Get shipment performance report"""
-        query = self.db.query(Shipment)
+        query = self.db_session.query(Shipment)
         
         if start_date:
             query = query.filter(Shipment.shipment_date >= start_date)
@@ -369,7 +369,7 @@ class ShipmentService(CRUDService):
         today = date.today()
         prefix = f"SH{today.strftime('%y%m%d')}"
         
-        last_shipment = self.db.query(Shipment).filter(
+        last_shipment = self.db_session.query(Shipment).filter(
             Shipment.shipment_number.like(f"{prefix}%")
         ).order_by(Shipment.id.desc()).first()
         

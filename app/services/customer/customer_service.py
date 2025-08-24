@@ -77,7 +77,7 @@ class CustomerService(CRUDService):
     
     def get_by_code(self, customer_code: str) -> Dict[str, Any]:
         """Get customer by customer code"""
-        customer = self.db.query(Customer).filter(
+        customer = self.db_session.query(Customer).filter(
             Customer.customer_code == customer_code
         ).first()
         
@@ -88,7 +88,7 @@ class CustomerService(CRUDService):
     
     def search_customers(self, search_term: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Search customers by name or code"""
-        query = self.db.query(Customer).filter(Customer.is_active == True)
+        query = self.db_session.query(Customer).filter(Customer.is_active == True)
         
         if search_term:
             search_filter = (
@@ -103,7 +103,7 @@ class CustomerService(CRUDService):
     
     def get_customers_by_type(self, customer_type_id: int) -> List[Dict[str, Any]]:
         """Get customers by customer type"""
-        query = self.db.query(Customer).filter(
+        query = self.db_session.query(Customer).filter(
             and_(Customer.customer_type_id == customer_type_id, Customer.is_active == True)
         ).order_by(Customer.name.asc())
         
@@ -112,7 +112,7 @@ class CustomerService(CRUDService):
     
     def get_tender_eligible_customers(self) -> List[Dict[str, Any]]:
         """Get customers yang eligible untuk tender"""
-        query = self.db.query(Customer).filter(
+        query = self.db_session.query(Customer).filter(
             and_(
                 Customer.is_tender_eligible == True,
                 Customer.is_active == True,
@@ -128,7 +128,7 @@ class CustomerService(CRUDService):
         customer = self._get_or_404(Customer, customer_id)
         
         # Get addresses
-        addresses = self.db.query(CustomerAddress).filter(
+        addresses = self.db_session.query(CustomerAddress).filter(
             CustomerAddress.customer_id == customer_id
         ).all()
         
@@ -147,10 +147,10 @@ class CustomerService(CRUDService):
     
     def _validate_customer_type(self, customer_type_id: int):
         """Validate customer type exists"""
-        if not self.db.query(CustomerType).filter(CustomerType.id == customer_type_id).first():
+        if not self.db_session.query(CustomerType).filter(CustomerType.id == customer_type_id).first():
             raise ValidationError(f"Customer type with ID {customer_type_id} not found")
     
     def _validate_sector_type(self, sector_type_id: int):
         """Validate sector type exists"""
-        if not self.db.query(SectorType).filter(SectorType.id == sector_type_id).first():
+        if not self.db_session.query(SectorType).filter(SectorType.id == sector_type_id).first():
             raise ValidationError(f"Sector type with ID {sector_type_id} not found")

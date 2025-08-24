@@ -67,8 +67,8 @@ class PackingOrderService(CRUDService):
         packing_order = PackingOrder(**validated_data)
         self._set_audit_fields(packing_order)
         
-        self.db.add(packing_order)
-        self.db.flush()
+        self.db_session.add(packing_order)
+        self.db_session.flush()
         
         # Update picking list status
         picking_list.status = 'PACKED'
@@ -134,7 +134,7 @@ class PackingOrderService(CRUDService):
             raise PackingError(f"Can only complete in-progress orders. Current status: {packing_order.status}")
         
         # Validate has packing boxes
-        boxes_count = self.db.query(PackingBox).filter(
+        boxes_count = self.db_session.query(PackingBox).filter(
             PackingBox.packing_order_id == packing_order_id
         ).count()
         
@@ -167,7 +167,7 @@ class PackingOrderService(CRUDService):
         """Get packing order dengan all boxes"""
         packing_order = self._get_or_404(PackingOrder, packing_order_id)
         
-        boxes = self.db.query(PackingBox).filter(
+        boxes = self.db_session.query(PackingBox).filter(
             PackingBox.packing_order_id == packing_order_id
         ).order_by(PackingBox.box_number.asc()).all()
         
@@ -178,7 +178,7 @@ class PackingOrderService(CRUDService):
     
     def get_pending_packing_orders(self, packer_user_id: str = None) -> List[Dict[str, Any]]:
         """Get pending packing orders"""
-        query = self.db.query(PackingOrder).filter(
+        query = self.db_session.query(PackingOrder).filter(
             PackingOrder.status.in_(['PENDING', 'ASSIGNED'])
         )
         
@@ -192,7 +192,7 @@ class PackingOrderService(CRUDService):
     
     def get_ready_for_shipment(self) -> List[Dict[str, Any]]:
         """Get packing orders yang ready untuk shipment"""
-        query = self.db.query(PackingOrder).filter(
+        query = self.db_session.query(PackingOrder).filter(
             PackingOrder.status == 'COMPLETED'
         ).order_by(PackingOrder.completed_date.asc())
         
@@ -204,7 +204,7 @@ class PackingOrderService(CRUDService):
         today = date.today()
         prefix = f"PO{today.strftime('%y%m%d')}"
         
-        last_order = self.db.query(PackingOrder).filter(
+        last_order = self.db_session.query(PackingOrder).filter(
             PackingOrder.packing_order_number.like(f"{prefix}%")
         ).order_by(PackingOrder.id.desc()).first()
         
@@ -219,7 +219,7 @@ class PackingOrderService(CRUDService):
     def _update_shipped_quantities(self, packing_order_id: int):
         """Update shipped quantities untuk allocations"""
         # Get all items dalam boxes
-        box_items = self.db.query(PackingBoxItem).join(PackingBox).filter(
+        box_items = self.db_session.query(PackingBoxItem).join(PackingBox).filter(
             PackingBox.packing_order_id == packing_order_id
         ).all()
         
@@ -306,8 +306,8 @@ class PackingBoxService(CRUDService):
         box_item = PackingBoxItem(**validated_data)
         self._set_audit_fields(box_item)
         
-        self.db.add(box_item)
-        self.db.flush()
+        self.db_session.add(box_item)
+        self.db_session.flush()
         
         # Update box totals
         self._update_box_totals(box_id)
@@ -324,7 +324,7 @@ class PackingBoxService(CRUDService):
             raise PackingError("Box is already sealed")
         
         # Validate box has items
-        items_count = self.db.query(PackingBoxItem).filter(
+        items_count = self.db_session.query(PackingBoxItem).filter(
             PackingBoxItem.packing_box_id == box_id
         ).count()
         
@@ -346,7 +346,7 @@ class PackingBoxService(CRUDService):
         """Get box dengan all items"""
         box = self._get_or_404(PackingBox, box_id)
         
-        items = self.db.query(PackingBoxItem).filter(
+        items = self.db_session.query(PackingBoxItem).filter(
             PackingBoxItem.packing_box_id == box_id
         ).all()
         
@@ -357,7 +357,7 @@ class PackingBoxService(CRUDService):
     
     def get_boxes_by_packing_order(self, packing_order_id: int) -> List[Dict[str, Any]]:
         """Get all boxes untuk packing order"""
-        boxes = self.db.query(PackingBox).filter(
+        boxes = self.db_session.query(PackingBox).filter(
             PackingBox.packing_order_id == packing_order_id
         ).order_by(PackingBox.box_number.asc()).all()
         
@@ -365,7 +365,7 @@ class PackingBoxService(CRUDService):
     
     def _get_next_box_number(self, packing_order_id: int) -> int:
         """Get next box number untuk packing order"""
-        last_box = self.db.query(PackingBox).filter(
+        last_box = self.db_session.query(PackingBox).filter(
             PackingBox.packing_order_id == packing_order_id
         ).order_by(PackingBox.box_number.desc()).first()
         
@@ -381,7 +381,7 @@ class PackingBoxService(CRUDService):
         """Update box totals"""
         box = self._get_or_404(PackingBox, box_id)
         
-        items = self.db.query(PackingBoxItem).filter(
+        items = self.db_session.query(PackingBoxItem).filter(
             PackingBoxItem.packing_box_id == box_id
         ).all()
         

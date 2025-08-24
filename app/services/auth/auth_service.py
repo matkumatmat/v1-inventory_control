@@ -33,7 +33,7 @@ class AuthService(BaseService):
     
     @transactional
     @audit_log('LOGIN', 'User')
-    def authenticate_user(self, username: str, password: str, 
+    async def authenticate_user(self, username: str, password: str, 
                          ip_address: str = None, user_agent: str = None,
                          remember_me: bool = False) -> Dict[str, Any]:
         """Authenticate user dan create session"""
@@ -45,10 +45,10 @@ class AuthService(BaseService):
         })
         
         # Find user
-        user = self.db.query(User).filter(User.username == username).first()
+        user = self.db_session.query(User).filter(User.username == username).first()
         
         if not user:
-            self._log_failed_login(username, ip_address, 'USER_NOT_FOUND')
+            await self._log_failed_login(username, ip_address, 'USER_NOT_FOUND')
             raise AuthenticationError("Invalid username or password")
         
         # Check if user is locked
@@ -64,7 +64,7 @@ class AuthService(BaseService):
         
         # Verify password
         if not self._verify_password(password, user.password_hash):
-            self._handle_failed_login(user, ip_address)
+            await self._handle_failed_login(user, ip_address)
             raise AuthenticationError("Invalid username or password")
         
         # Check if user can login
@@ -82,14 +82,14 @@ class AuthService(BaseService):
         self._set_audit_fields(user, is_update=True)
         
         # Create session
-        session_data = self._create_user_session(user, ip_address, user_agent, remember_me)
+        session_data = await self._create_user_session(user, ip_address, user_agent, remember_me)
         
         # Generate tokens
         access_token = self._generate_access_token(user, session_data['session_id'])
         refresh_token = self._generate_refresh_token(user, session_data['session_id'])
         
         # Log activity
-        self._log_user_activity(user.id, 'LOGIN', ip_address, user_agent)
+        await self._log_user_activity(user.id, 'LOGIN', ip_address, user_agent)
         
         # Prepare response
         response_data = {
@@ -104,11 +104,11 @@ class AuthService(BaseService):
     
     @transactional
     @audit_log('LOGOUT', 'User')
-    def logout_user(self, session_id: str, user_id: int = None,
+    async def logout_user(self, session_id: str, user_id: int = None,
                    ip_address: str = None, user_agent: str = None) -> bool:
         """Logout user dan invalidate session"""
         # Find session
-        session = self.db.query(UserSession).filter(
+        session = self.db_session.query(UserSession).filter(
             UserSession.session_id == session_id
         ).first()
         
@@ -119,7 +119,7 @@ class AuthService(BaseService):
             
             # Log activity
             if session.user_id:
-                self._log_user_activity(session.user_id, 'LOGOUT', ip_address, user_agent)
+                await self._log_user_activity(session.user_id, 'LOGOUT', ip_address, user_agent)
         
         return True
     
@@ -137,7 +137,7 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid token type")
             
             # Validate session
-            session = self.db.query(UserSession).filter(
+            session = self.db_session.query(UserSession).filter(
                 and_(
                     UserSession.session_id == session_id,
                     UserSession.user_id == user_id,
@@ -150,7 +150,7 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid or expired session")
             
             # Get user
-            user = self.db.query(User).filter(
+            user = self.db_session.query(User).filter(
                 and_(User.id == user_id, User.is_active == True)
             ).first()
             
@@ -185,7 +185,7 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid token type")
             
             # Validate session
-            session = self.db.query(UserSession).filter(
+            session = self.db_session.query(UserSession).filter(
                 and_(
                     UserSession.session_id == session_id,
                     UserSession.user_id == user_id,
@@ -198,7 +198,7 @@ class AuthService(BaseService):
                 raise AuthenticationError("Invalid or expired session")
             
             # Get user
-            user = self.db.query(User).filter(
+            user = self.db_session.query(User).filter(
                 and_(User.id == user_id, User.is_active == True)
             ).first()
             
@@ -223,7 +223,7 @@ class AuthService(BaseService):
     def check_permission(self, user_id: int, required_role: str = None,
                         required_permissions: List[str] = None) -> bool:
         """Check user permissions"""
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db_session.query(User).filter(User.id == user_id).first()
         
         if not user or not user.is_active:
             return False
@@ -310,8 +310,8 @@ class AuthService(BaseService):
             is_active=True
         )
         
-        self.db.add(session)
-        self.db.flush()
+        self.db_session.add(session)
+        self.db_session.flush()
         
         # Update user current session
         user.current_session_id = session_id
@@ -357,4 +357,4 @@ class AuthService(BaseService):
             timestamp=datetime.utcnow()
         )
         
-        self.db.add(activity)
+        self.db_session.add(activity)

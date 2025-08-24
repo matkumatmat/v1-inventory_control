@@ -2,7 +2,7 @@
 Schemas Package
 ===============
 
-Marshmallow schemas untuk serialization dan validation
+Pydantic schemas for serialization and validation.
 """
 
 from .base import (
@@ -12,105 +12,94 @@ from .base import (
     StatusMixin,
     ERPMixin,
     AddressMixin,
-    ContactMixin
+    ContactMixin,
 )
 
-# ==================== PRODUCT DOMAIN ====================
+# ==================== DOMAIN SCHEMAS ====================
+
 from .product import (
-    # Enum schemas
-    ProductTypeSchema, 
-    PackageTypeSchema, 
-    TemperatureTypeSchema,  
-    AllocationTypeSchema, 
-    MovementTypeSchema,  
-    
-    # Main schemas
     ProductSchema, ProductCreateSchema, ProductUpdateSchema,
     BatchSchema, BatchCreateSchema, BatchUpdateSchema,
     AllocationSchema, AllocationCreateSchema, AllocationUpdateSchema,
-    StockMovementSchema, StockMovementCreateSchema, StockMovementUpdateSchema
+    StockMovementSchema, StockMovementCreateSchema, StockMovementUpdateSchema,
 )
 
-# ==================== CUSTOMER DOMAIN ====================
 from .customer import (
-    # Enum schemas
-    SectorTypeSchema,
-    CustomerTypeSchema,
-    
-    # Main schemas
     CustomerSchema, CustomerCreateSchema, CustomerUpdateSchema,
-    CustomerAddressSchema, CustomerAddressCreateSchema, CustomerAddressUpdateSchema
+    CustomerAddressSchema, CustomerAddressCreateSchema, CustomerAddressUpdateSchema,
 )
 
-# ==================== WAREHOUSE DOMAIN ====================
 from .warehouse import (
     WarehouseSchema, WarehouseCreateSchema, WarehouseUpdateSchema,
     RackSchema, RackCreateSchema, RackUpdateSchema,
-    RackAllocationSchema, RackAllocationCreateSchema
+    RackAllocationSchema, RackAllocationCreateSchema,
 )
 
-# ==================== CONTRACT DOMAIN ====================
 from .contract import (
     TenderContractSchema, TenderContractCreateSchema, TenderContractUpdateSchema,
-    ContractReservationSchema, ContractReservationCreateSchema, ContractReservationUpdateSchema
+    ContractReservationSchema, ContractReservationCreateSchema, ContractReservationUpdateSchema,
 )
 
-# ==================== SALES DOMAIN ====================
 from .sales import (
     PackingSlipSchema, PackingSlipCreateSchema, PackingSlipUpdateSchema,
     SalesOrderSchema, SalesOrderCreateSchema, SalesOrderUpdateSchema,
     SalesOrderItemSchema, SalesOrderItemCreateSchema, SalesOrderItemUpdateSchema,
     ShippingPlanSchema, ShippingPlanCreateSchema, ShippingPlanUpdateSchema,
-    ShippingPlanItemSchema, ShippingPlanItemCreateSchema, ShippingPlanItemUpdateSchema
+    ShippingPlanItemSchema, ShippingPlanItemCreateSchema, ShippingPlanItemUpdateSchema,
 )
 
-# ==================== PICKING DOMAIN ====================
 from .picking import (
     PickingListSchema, PickingListCreateSchema, PickingListUpdateSchema,
     PickingListItemSchema, PickingListItemCreateSchema, PickingListItemUpdateSchema,
     PickingOrderSchema, PickingOrderCreateSchema, PickingOrderUpdateSchema,
-    PickingOrderItemSchema, PickingOrderItemCreateSchema, PickingOrderItemUpdateSchema
+    PickingOrderItemSchema, PickingOrderItemCreateSchema, PickingOrderItemUpdateSchema,
 )
 
-# ==================== PACKING DOMAIN ====================
 from .packing import (
     PackingOrderSchema, PackingOrderCreateSchema, PackingOrderUpdateSchema,
     PackingBoxSchema, PackingBoxCreateSchema, PackingBoxUpdateSchema,
-    PackingBoxItemSchema, PackingBoxItemCreateSchema, PackingBoxItemUpdateSchema
+    PackingBoxItemSchema, PackingBoxItemCreateSchema, PackingBoxItemUpdateSchema,
 )
 
-# ==================== SHIPMENT DOMAIN ====================
 from .shipment import (
-    # Enum schemas
-    DeliveryMethodSchema, DeliveryMethodCreateSchema, DeliveryMethodUpdateSchema,
-    CarrierTypeSchema, CarrierTypeCreateSchema, CarrierTypeUpdateSchema,
-    DocumentTypeSchema, DocumentTypeCreateSchema, DocumentTypeUpdateSchema,
-    
-    # Main schemas
     CarrierSchema, CarrierCreateSchema, CarrierUpdateSchema,
     ShipmentSchema, ShipmentCreateSchema, ShipmentUpdateSchema,
     ShipmentDocumentSchema, ShipmentDocumentCreateSchema, ShipmentDocumentUpdateSchema,
-    ShipmentTrackingSchema, ShipmentTrackingCreateSchema, ShipmentTrackingUpdateSchema
+    ShipmentTrackingSchema, ShipmentTrackingCreateSchema, ShipmentTrackingUpdateSchema,
 )
 
-# ==================== CONSIGNMENT DOMAIN ====================
 from .consignment import (
     ConsignmentAgreementSchema, ConsignmentAgreementCreateSchema, ConsignmentAgreementUpdateSchema,
     ConsignmentSchema, ConsignmentCreateSchema, ConsignmentUpdateSchema,
     ConsignmentItemSchema, ConsignmentItemCreateSchema, ConsignmentItemUpdateSchema,
     ConsignmentSaleSchema, ConsignmentSaleCreateSchema, ConsignmentSaleUpdateSchema,
     ConsignmentReturnSchema, ConsignmentReturnCreateSchema, ConsignmentReturnUpdateSchema,
-    ConsignmentStatementSchema, ConsignmentStatementCreateSchema, ConsignmentStatementUpdateSchema
+    ConsignmentStatementSchema, ConsignmentStatementCreateSchema, ConsignmentStatementUpdateSchema,
 )
 
-# ==================== USER DOMAIN ====================
 from .user import (
     UserSchema, UserCreateSchema, UserUpdateSchema, UserProfileSchema,
     PasswordChangeSchema, LoginSchema, LoginResponseSchema, TokenRefreshSchema,
-    UserSessionSchema, UserActivitySchema, UserSessionCreateSchema, UserSessionUpdateSchema
+    UserSessionSchema, UserSessionCreateSchema, UserSessionUpdateSchema,
+    UserActivitySchema,
 )
 
-# ==================== HELPER DOMAIN ====================
+# ==================== TYPE/ENUM SCHEMAS (from individual files) ====================
+from .product_type import ProductTypeSchema, ProductTypeCreateSchema, ProductTypeUpdateSchema
+from .package_type import PackageTypeSchema, PackageTypeCreateSchema, PackageTypeUpdateSchema
+from .temperature_type import TemperatureTypeSchema, TemperatureTypeCreateSchema, TemperatureTypeUpdateSchema
+from .allocation_type import AllocationTypeSchema, AllocationTypeCreateSchema, AllocationTypeUpdateSchema
+from .movement_type import MovementTypeSchema, MovementTypeCreateSchema, MovementTypeUpdateSchema
+from .sector_type import SectorTypeSchema, SectorTypeCreateSchema, SectorTypeUpdateSchema
+from .customer_type import CustomerTypeSchema, CustomerTypeCreateSchema, CustomerTypeUpdateSchema
+from .location_type import LocationTypeSchema, LocationTypeCreateSchema, LocationTypeUpdateSchema
+from .packaging_material import PackagingMaterialSchema, PackagingMaterialCreateSchema, PackagingMaterialUpdateSchema
+from .carrier_type import CarrierTypeSchema, CarrierTypeCreateSchema, CarrierTypeUpdateSchema
+from .document_type import DocumentTypeSchema, DocumentTypeCreateSchema, DocumentTypeUpdateSchema
+from .shipping_method import ShippingMethodSchema, ShippingMethodCreateSchema, ShippingMethodUpdateSchema
+from .priority_level import PriorityLevelSchema, PriorityLevelCreateSchema, PriorityLevelUpdateSchema
+from .status_type import StatusTypeSchema, StatusTypeCreateSchema, StatusTypeUpdateSchema
+
 from .helper import (
     BaseEnumSchema, BaseEnumCreateSchema, BaseEnumUpdateSchema,
     SystemConfigurationSchema, SystemConfigurationCreateSchema, SystemConfigurationUpdateSchema,
@@ -119,17 +108,16 @@ from .helper import (
     AuditLogSchema, AuditLogCreateSchema,
     SystemLogSchema, SystemLogCreateSchema,
     ErrorResponseSchema, SuccessResponseSchema, PaginatedResponseSchema,
-    SearchSchema, DateRangeSchema
+    SearchSchema, DateRangeSchema,
 )
 
-# ==================== VALIDATORS ====================
 from .validators import (
     validate_product_code, validate_customer_code, validate_batch_number,
     validate_expiry_date, validate_manufacturing_date, validate_positive_number,
     validate_non_negative_number, validate_percentage, validate_priority_level,
     validate_phone_number, validate_postal_code, validate_rack_code,
     validate_contract_number, validate_allocation_quantities, validate_so_number,
-    validate_ps_number, validate_nie_number, validate_tracking_number
+    validate_ps_number, validate_nie_number, validate_tracking_number,
 )
 
 __all__ = [
@@ -138,19 +126,12 @@ __all__ = [
     'ERPMixin', 'AddressMixin', 'ContactMixin',
     
     # Product domain
-    'ProductTypeSchema',
-    'PackageTypeSchema', 'PackageTypeCreateSchema', 'PackageTypeUpdateSchema',
-    'TemperatureTypeSchema', 'TemperatureTypeCreateSchema', 'TemperatureTypeUpdateSchema',
-    'AllocationTypeSchema', 'AllocationTypeCreateSchema', 'AllocationTypeUpdateSchema',
-    'MovementTypeSchema', 'MovementTypeCreateSchema', 'MovementTypeUpdateSchema',
     'ProductSchema', 'ProductCreateSchema', 'ProductUpdateSchema',
     'BatchSchema', 'BatchCreateSchema', 'BatchUpdateSchema',
     'AllocationSchema', 'AllocationCreateSchema', 'AllocationUpdateSchema',
-    'StockMovementSchema', 'StockMovementCreateSchema','StockMovementUpdateSchema',
+    'StockMovementSchema', 'StockMovementCreateSchema', 'StockMovementUpdateSchema',
     
     # Customer domain
-    'SectorTypeSchema', 'SectorTypeCreateSchema', 'SectorTypeUpdateSchema',
-    'CustomerTypeSchema', 'CustomerTypeCreateSchema', 'CustomerTypeUpdateSchema',
     'CustomerSchema', 'CustomerCreateSchema', 'CustomerUpdateSchema',
     'CustomerAddressSchema', 'CustomerAddressCreateSchema', 'CustomerAddressUpdateSchema',
     
@@ -182,9 +163,6 @@ __all__ = [
     'PackingBoxItemSchema', 'PackingBoxItemCreateSchema', 'PackingBoxItemUpdateSchema',
     
     # Shipment domain
-    'DeliveryMethodSchema', 'DeliveryMethodCreateSchema', 'DeliveryMethodUpdateSchema',
-    'CarrierTypeSchema', 'CarrierTypeCreateSchema', 'CarrierTypeUpdateSchema',
-    'DocumentTypeSchema', 'DocumentTypeCreateSchema', 'DocumentTypeUpdateSchema',
     'CarrierSchema', 'CarrierCreateSchema', 'CarrierUpdateSchema',
     'ShipmentSchema', 'ShipmentCreateSchema', 'ShipmentUpdateSchema',
     'ShipmentDocumentSchema', 'ShipmentDocumentCreateSchema', 'ShipmentDocumentUpdateSchema',
@@ -201,8 +179,26 @@ __all__ = [
     # User domain
     'UserSchema', 'UserCreateSchema', 'UserUpdateSchema', 'UserProfileSchema',
     'PasswordChangeSchema', 'LoginSchema', 'LoginResponseSchema', 'TokenRefreshSchema',
-    'UserSessionSchema', 'UserActivitySchema','UserSessionCreateSchema', 'UserSessionUpdateSchema'
+    'UserSessionSchema', 'UserSessionCreateSchema', 'UserSessionUpdateSchema',
+    'UserActivitySchema',
     
+    # Type/Enum Schemas
+    'ProductTypeSchema', 'ProductTypeCreateSchema', 'ProductTypeUpdateSchema',
+    'PackageTypeSchema', 'PackageTypeCreateSchema', 'PackageTypeUpdateSchema',
+    'TemperatureTypeSchema', 'TemperatureTypeCreateSchema', 'TemperatureTypeUpdateSchema',
+    'AllocationTypeSchema', 'AllocationTypeCreateSchema', 'AllocationTypeUpdateSchema',
+    'MovementTypeSchema', 'MovementTypeCreateSchema', 'MovementTypeUpdateSchema',
+    'SectorTypeSchema', 'SectorTypeCreateSchema', 'SectorTypeUpdateSchema',
+    'CustomerTypeSchema', 'CustomerTypeCreateSchema', 'CustomerTypeUpdateSchema',
+    'LocationTypeSchema', 'LocationTypeCreateSchema', 'LocationTypeUpdateSchema',
+    'PackagingMaterialSchema', 'PackagingMaterialCreateSchema', 'PackagingMaterialUpdateSchema',
+    'DeliveryMethodSchema', 'DeliveryMethodCreateSchema', 'DeliveryMethodUpdateSchema',
+    'CarrierTypeSchema', 'CarrierTypeCreateSchema', 'CarrierTypeUpdateSchema',
+    'DocumentTypeSchema', 'DocumentTypeCreateSchema', 'DocumentTypeUpdateSchema',
+    'ShippingMethodSchema', 'ShippingMethodCreateSchema', 'ShippingMethodUpdateSchema',
+    'PriorityLevelSchema', 'PriorityLevelCreateSchema', 'PriorityLevelUpdateSchema',
+    'StatusTypeSchema', 'StatusTypeCreateSchema', 'StatusTypeUpdateSchema',
+
     # Helper domain
     'BaseEnumSchema', 'BaseEnumCreateSchema', 'BaseEnumUpdateSchema',
     'SystemConfigurationSchema', 'SystemConfigurationCreateSchema', 'SystemConfigurationUpdateSchema',
@@ -219,7 +215,7 @@ __all__ = [
     'validate_non_negative_number', 'validate_percentage', 'validate_priority_level',
     'validate_phone_number', 'validate_postal_code', 'validate_rack_code',
     'validate_contract_number', 'validate_allocation_quantities', 'validate_so_number',
-    'validate_ps_number', 'validate_nie_number', 'validate_tracking_number'
+    'validate_ps_number', 'validate_nie_number', 'validate_tracking_number',
 ]
 
 def init_schemas():

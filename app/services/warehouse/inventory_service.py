@@ -26,7 +26,7 @@ class InventoryService(BaseService):
         product = self._get_or_404(Product, product_id)
         
         # Get all batches
-        batches = self.db.query(Batch).filter(
+        batches = self.db_session.query(Batch).filter(
             and_(Batch.product_id == product_id, Batch.status == 'ACTIVE')
         ).all()
         
@@ -34,7 +34,7 @@ class InventoryService(BaseService):
         total_received = sum(batch.received_quantity for batch in batches)
         
         # Get allocation summary
-        allocations_query = self.db.query(Allocation).join(Batch).filter(
+        allocations_query = self.db_session.query(Allocation).join(Batch).filter(
             and_(Batch.product_id == product_id, Allocation.status == 'active')
         )
         
@@ -91,7 +91,7 @@ class InventoryService(BaseService):
         warehouse = self._get_or_404(Warehouse, warehouse_id)
         
         # Get all rack allocations in this warehouse
-        rack_allocations_query = self.db.query(RackAllocation).join(Rack).filter(
+        rack_allocations_query = self.db_session.query(RackAllocation).join(Rack).filter(
             Rack.warehouse_id == warehouse_id
         )
         
@@ -145,7 +145,7 @@ class InventoryService(BaseService):
     
     def get_stock_aging_report(self, warehouse_id: int = None) -> Dict[str, Any]:
         """Get stock aging report berdasarkan received date"""
-        query = self.db.query(Batch).filter(
+        query = self.db_session.query(Batch).filter(
             and_(Batch.status == 'ACTIVE', Batch.qc_status == 'PASSED')
         )
         
@@ -208,7 +208,7 @@ class InventoryService(BaseService):
         """Get expiry alert report"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(Batch).filter(
+        query = self.db_session.query(Batch).filter(
             and_(
                 Batch.expiry_date <= cutoff_date,
                 Batch.expiry_date >= date.today(),
@@ -270,7 +270,7 @@ class InventoryService(BaseService):
         # This is a simplified version - you might want to implement 
         # per-product thresholds in the future
         
-        products = self.db.query(Product).filter(Product.is_active == True).all()
+        products = self.db_session.query(Product).filter(Product.is_active == True).all()
         low_stock_products = []
         
         for product in products:
@@ -295,7 +295,7 @@ class InventoryService(BaseService):
         """Get expiring batches untuk specific product"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(Batch).filter(
+        query = self.db_session.query(Batch).filter(
             and_(
                 Batch.product_id == product_id,
                 Batch.expiry_date <= cutoff_date,
@@ -323,12 +323,12 @@ class InventoryService(BaseService):
     
     def _get_available_stock_for_batch(self, batch_id: int) -> int:
         """Get available stock untuk specific batch"""
-        batch = self.db.query(Batch).filter(Batch.id == batch_id).first()
+        batch = self.db_session.query(Batch).filter(Batch.id == batch_id).first()
         if not batch:
             return 0
         
         # Calculate total allocated
-        total_allocated = self.db.query(
+        total_allocated = self.db_session.query(
             func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)
         ).filter(
             and_(Allocation.batch_id == batch_id, Allocation.status == 'active')

@@ -37,7 +37,7 @@ class CarrierService(CRUDService):
         # Validate carrier type exists
         carrier_type_id = data.get('carrier_type_id')
         if carrier_type_id:
-            carrier_type = self.db.query(CarrierType).filter(
+            carrier_type = self.db_session.query(CarrierType).filter(
                 CarrierType.id == carrier_type_id
             ).first()
             if not carrier_type:
@@ -47,7 +47,7 @@ class CarrierService(CRUDService):
     
     def get_active_carriers(self) -> List[Dict[str, Any]]:
         """Get all active carriers"""
-        carriers = self.db.query(Carrier).filter(
+        carriers = self.db_session.query(Carrier).filter(
             Carrier.is_active == True
         ).order_by(Carrier.name.asc()).all()
         
@@ -55,7 +55,7 @@ class CarrierService(CRUDService):
     
     def get_carriers_by_type(self, carrier_type_id: int) -> List[Dict[str, Any]]:
         """Get carriers by type"""
-        carriers = self.db.query(Carrier).filter(
+        carriers = self.db_session.query(Carrier).filter(
             and_(
                 Carrier.carrier_type_id == carrier_type_id,
                 Carrier.is_active == True

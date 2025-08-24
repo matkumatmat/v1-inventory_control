@@ -90,7 +90,7 @@ class SalesOrderService(CRUDService):
         # Validate line number uniqueness
         line_number = item_data.get('line_number')
         if line_number:
-            existing_item = self.db.query(SalesOrderItem).filter(
+            existing_item = self.db_session.query(SalesOrderItem).filter(
                 and_(
                     SalesOrderItem.sales_order_id == so_id,
                     SalesOrderItem.line_number == line_number
@@ -110,8 +110,8 @@ class SalesOrderService(CRUDService):
         item = SalesOrderItem(**validated_data)
         self._set_audit_fields(item)
         
-        self.db.add(item)
-        self.db.flush()
+        self.db_session.add(item)
+        self.db_session.flush()
         
         # Update SO totals
         self._update_so_totals(so_id)
@@ -158,7 +158,7 @@ class SalesOrderService(CRUDService):
             raise BusinessRuleError(f"Only pending orders can be confirmed. Current status: {so.status}")
         
         # Validate SO has items
-        items_count = self.db.query(SalesOrderItem).filter(
+        items_count = self.db_session.query(SalesOrderItem).filter(
             SalesOrderItem.sales_order_id == so_id
         ).count()
         
@@ -209,7 +209,7 @@ class SalesOrderService(CRUDService):
             raise BusinessRuleError("Cannot cancel completed order")
         
         # Check if any items have been shipped
-        shipped_items = self.db.query(SalesOrderItem).filter(
+        shipped_items = self.db_session.query(SalesOrderItem).filter(
             and_(
                 SalesOrderItem.sales_order_id == so_id,
                 SalesOrderItem.quantity_shipped > 0
@@ -243,7 +243,7 @@ class SalesOrderService(CRUDService):
     
     def get_by_so_number(self, so_number: str) -> Dict[str, Any]:
         """Get SO by SO number"""
-        so = self.db.query(SalesOrder).filter(
+        so = self.db_session.query(SalesOrder).filter(
             SalesOrder.so_number == so_number
         ).first()
         
@@ -256,7 +256,7 @@ class SalesOrderService(CRUDService):
         """Get SO dengan all items"""
         so = self._get_or_404(SalesOrder, so_id)
         
-        items = self.db.query(SalesOrderItem).filter(
+        items = self.db_session.query(SalesOrderItem).filter(
             SalesOrderItem.sales_order_id == so_id
         ).order_by(SalesOrderItem.line_number.asc()).all()
         
@@ -267,7 +267,7 @@ class SalesOrderService(CRUDService):
     
     def get_pending_orders(self, customer_id: int = None) -> List[Dict[str, Any]]:
         """Get pending sales orders"""
-        query = self.db.query(SalesOrder).filter(
+        query = self.db_session.query(SalesOrder).filter(
             SalesOrder.status.in_(['PENDING', 'CONFIRMED'])
         )
         
@@ -283,7 +283,7 @@ class SalesOrderService(CRUDService):
         """Get overdue sales orders"""
         cutoff_date = date.today() - timedelta(days=days_overdue)
         
-        query = self.db.query(SalesOrder).filter(
+        query = self.db_session.query(SalesOrder).filter(
             and_(
                 SalesOrder.status.in_(['CONFIRMED', 'PROCESSING']),
                 SalesOrder.requested_delivery_date <= cutoff_date
@@ -302,7 +302,7 @@ class SalesOrderService(CRUDService):
     
     def get_so_summary_report(self, start_date: date = None, end_date: date = None) -> Dict[str, Any]:
         """Get SO summary report"""
-        query = self.db.query(SalesOrder)
+        query = self.db_session.query(SalesOrder)
         
         if start_date:
             query = query.filter(SalesOrder.so_date >= start_date)
@@ -391,7 +391,7 @@ class SalesOrderService(CRUDService):
         so = self._get_or_404(SalesOrder, so_id)
         
         # Calculate totals from items
-        items = self.db.query(SalesOrderItem).filter(
+        items = self.db_session.query(SalesOrderItem).filter(
             SalesOrderItem.sales_order_id == so_id
         ).all()
         
@@ -417,7 +417,7 @@ class SalesOrderItemService(CRUDService):
     
     def get_items_by_so(self, so_id: int) -> List[Dict[str, Any]]:
         """Get all items untuk SO"""
-        items = self.db.query(SalesOrderItem).filter(
+        items = self.db_session.query(SalesOrderItem).filter(
             SalesOrderItem.sales_order_id == so_id
         ).order_by(SalesOrderItem.line_number.asc()).all()
         
@@ -425,7 +425,7 @@ class SalesOrderItemService(CRUDService):
     
     def get_pending_items_for_shipping(self, so_id: int = None) -> List[Dict[str, Any]]:
         """Get items yang pending untuk shipping"""
-        query = self.db.query(SalesOrderItem).join(SalesOrder).filter(
+        query = self.db_session.query(SalesOrderItem).join(SalesOrder).filter(
             and_(
                 SalesOrder.status.in_(['CONFIRMED', 'PROCESSING']),
                 SalesOrderItem.quantity_shipped < SalesOrderItem.quantity_ordered

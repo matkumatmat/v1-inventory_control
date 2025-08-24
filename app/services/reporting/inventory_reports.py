@@ -26,7 +26,7 @@ class InventoryReportService(BaseService):
         if not as_of_date:
             as_of_date = date.today()
         
-        query = self.db.query(Product).filter(Product.is_active == True)
+        query = self.db_session.query(Product).filter(Product.is_active == True)
         products = query.all()
         
         report_data = []
@@ -70,7 +70,7 @@ class InventoryReportService(BaseService):
         """Generate expiry report"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(Batch).filter(
+        query = self.db_session.query(Batch).filter(
             and_(
                 Batch.expiry_date <= cutoff_date,
                 Batch.expiry_date >= date.today(),
@@ -127,7 +127,7 @@ class InventoryReportService(BaseService):
     def generate_movement_report(self, start_date: date, end_date: date,
                                product_id: int = None, warehouse_id: int = None) -> Dict[str, Any]:
         """Generate stock movement report"""
-        query = self.db.query(StockMovement).filter(
+        query = self.db_session.query(StockMovement).filter(
             and_(
                 StockMovement.movement_date >= start_date,
                 StockMovement.movement_date <= end_date
@@ -184,7 +184,7 @@ class InventoryReportService(BaseService):
     
     def generate_warehouse_utilization_report(self, warehouse_id: int = None) -> Dict[str, Any]:
         """Generate warehouse utilization report"""
-        query = self.db.query(Warehouse).filter(Warehouse.is_active == True)
+        query = self.db_session.query(Warehouse).filter(Warehouse.is_active == True)
         
         if warehouse_id:
             query = query.filter(Warehouse.id == warehouse_id)
@@ -195,7 +195,7 @@ class InventoryReportService(BaseService):
         
         for warehouse in warehouses:
             # Get racks in this warehouse
-            racks = self.db.query(Rack).filter(
+            racks = self.db_session.query(Rack).filter(
                 and_(Rack.warehouse_id == warehouse.id, Rack.is_active == True)
             ).all()
             
@@ -240,7 +240,7 @@ class InventoryReportService(BaseService):
                                as_of_date: date = None) -> Dict[str, Any]:
         """Calculate stock levels for a product"""
         # Get all batches for product
-        batches_query = self.db.query(Batch).filter(
+        batches_query = self.db_session.query(Batch).filter(
             and_(Batch.product_id == product_id, Batch.status == 'ACTIVE')
         )
         
@@ -256,7 +256,7 @@ class InventoryReportService(BaseService):
         
         # Calculate allocations
         for batch in batches:
-            allocations = self.db.query(Allocation).filter(
+            allocations = self.db_session.query(Allocation).filter(
                 and_(Allocation.batch_id == batch.id, Allocation.status == 'active')
             )
             
@@ -281,11 +281,11 @@ class InventoryReportService(BaseService):
     
     def _get_available_stock_for_batch(self, batch_id: int) -> int:
         """Get available stock for specific batch"""
-        batch = self.db.query(Batch).filter(Batch.id == batch_id).first()
+        batch = self.db_session.query(Batch).filter(Batch.id == batch_id).first()
         if not batch:
             return 0
         
-        total_allocated = self.db.query(
+        total_allocated = self.db_session.query(
             func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)
         ).filter(
             and_(Allocation.batch_id == batch_id, Allocation.status == 'active')

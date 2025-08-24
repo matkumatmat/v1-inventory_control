@@ -43,7 +43,7 @@ async def get_users(
             filters['is_active'] = is_active
         
         # Get users
-        result = service_registry.user_service.get_all(
+        result = await service_registry.user_service.get_all(
             page=page,
             per_page=per_page,
             search=search,
@@ -98,7 +98,7 @@ async def get_user(
 ):
     """Get user by ID dengan detail profile"""
     try:
-        user = service_registry.user_service.get_user_profile(user_id)
+        user = await service_registry.user_service.get_user_profile(user_id)
         
         return APIResponse.success(
             data=user,
@@ -119,7 +119,7 @@ async def update_user(
 ):
     """Update user"""
     try:
-        user = service_registry.user_service.update(user_id, user_data.dict(exclude_unset=True))
+        user = await service_registry.user_service.update(user_id, user_data.dict(exclude_unset=True))
         
         return APIResponse.success(
             data=user,
@@ -139,7 +139,7 @@ async def delete_user(
 ):
     """Soft delete user (deactivate)"""
     try:
-        service_registry.user_service.deactivate_user(user_id, "Deleted via API")
+        await service_registry.user_service.deactivate_user(user_id, "Deleted via API")
         
         return APIResponse.success(message="User deleted successfully")
         
@@ -156,7 +156,7 @@ async def activate_user(
 ):
     """Activate user account"""
     try:
-        user = service_registry.user_service.activate_user(user_id)
+        user = await service_registry.user_service.activate_user(user_id)
         
         return APIResponse.success(
             data=user,
@@ -177,7 +177,7 @@ async def deactivate_user(
 ):
     """Deactivate user account"""
     try:
-        user = service_registry.user_service.deactivate_user(
+        user = await service_registry.user_service.deactivate_user(
             user_id, 
             reason.get('reason', 'Deactivated via API')
         )
@@ -200,7 +200,7 @@ async def unlock_user(
 ):
     """Unlock user account"""
     try:
-        user = service_registry.user_service.unlock_user(user_id)
+        user = await service_registry.user_service.unlock_user(user_id)
         
         return APIResponse.success(
             data=user,
@@ -220,7 +220,7 @@ async def get_users_by_role(
 ):
     """Get users by role"""
     try:
-        users = service_registry.user_service.get_users_by_role(role)
+        users = await service_registry.user_service.get_users_by_role(role)
         
         return APIResponse.success(
             data=users,

@@ -59,7 +59,7 @@ class ContractReservationService(CRUDService):
             )
         
         # Check for existing reservation for same allocation
-        existing_reservation = self.db.query(ContractReservation).filter(
+        existing_reservation = self.db_session.query(ContractReservation).filter(
             and_(
                 ContractReservation.contract_id == data['contract_id'],
                 ContractReservation.allocation_id == data['allocation_id']
@@ -197,7 +197,7 @@ class ContractReservationService(CRUDService):
     
     def get_contract_reservations(self, contract_id: int) -> List[Dict[str, Any]]:
         """Get all reservations untuk contract"""
-        reservations = self.db.query(ContractReservation).filter(
+        reservations = self.db_session.query(ContractReservation).filter(
             ContractReservation.contract_id == contract_id
         ).all()
         
@@ -206,7 +206,7 @@ class ContractReservationService(CRUDService):
     def get_product_reservations(self, product_id: int, 
                                include_allocated: bool = True) -> List[Dict[str, Any]]:
         """Get all reservations untuk product"""
-        query = self.db.query(ContractReservation).filter(
+        query = self.db_session.query(ContractReservation).filter(
             ContractReservation.product_id == product_id
         )
         
@@ -221,7 +221,7 @@ class ContractReservationService(CRUDService):
         # This would depend on business rules about which customers
         # can access which tender contracts
         
-        query = self.db.query(ContractReservation).join(TenderContract).filter(
+        query = self.db_session.query(ContractReservation).join(TenderContract).filter(
             and_(
                 TenderContract.status == 'ACTIVE',
                 ContractReservation.remaining_quantity > 0
@@ -246,7 +246,7 @@ class ContractReservationService(CRUDService):
     
     def get_reservation_utilization_report(self, contract_id: int = None) -> Dict[str, Any]:
         """Get reservation utilization report"""
-        query = self.db.query(ContractReservation)
+        query = self.db_session.query(ContractReservation)
         
         if contract_id:
             query = query.filter(ContractReservation.contract_id == contract_id)

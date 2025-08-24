@@ -95,7 +95,7 @@ class ConsignmentAgreementService(CRUDService):
         agreement = self._get_or_404(ConsignmentAgreement, agreement_id)
         
         # Check for active consignments
-        active_consignments = self.db.query(Consignment).filter(
+        active_consignments = self.db_session.query(Consignment).filter(
             and_(
                 Consignment.agreement_id == agreement_id,
                 Consignment.status.in_(['PENDING', 'SHIPPED', 'RECEIVED_BY_CUSTOMER', 'PARTIALLY_SOLD'])
@@ -121,7 +121,7 @@ class ConsignmentAgreementService(CRUDService):
     
     def get_active_agreements(self, customer_id: int = None) -> List[Dict[str, Any]]:
         """Get active consignment agreements"""
-        query = self.db.query(ConsignmentAgreement).filter(
+        query = self.db_session.query(ConsignmentAgreement).filter(
             ConsignmentAgreement.status == 'ACTIVE'
         )
         
@@ -137,7 +137,7 @@ class ConsignmentAgreementService(CRUDService):
         """Get agreements yang akan expire"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db.query(ConsignmentAgreement).filter(
+        query = self.db_session.query(ConsignmentAgreement).filter(
             and_(
                 ConsignmentAgreement.status == 'ACTIVE',
                 ConsignmentAgreement.end_date <= cutoff_date,
@@ -252,8 +252,8 @@ class ConsignmentService(CRUDService):
         item = ConsignmentItem(**validated_data)
         self._set_audit_fields(item)
         
-        self.db.add(item)
-        self.db.flush()
+        self.db_session.add(item)
+        self.db_session.flush()
         
         # Update consignment totals
         self._update_consignment_totals(consignment_id)
@@ -271,7 +271,7 @@ class ConsignmentService(CRUDService):
             raise ConsignmentError(f"Can only ship pending consignments. Current status: {consignment.status}")
         
         # Validate has items
-        items_count = self.db.query(ConsignmentItem).filter(
+        items_count = self.db_session.query(ConsignmentItem).filter(
             ConsignmentItem.consignment_id == consignment_id
         ).count()
         
@@ -332,7 +332,7 @@ class ConsignmentService(CRUDService):
         """Get consignment dengan all items"""
         consignment = self._get_or_404(Consignment, consignment_id)
         
-        items = self.db.query(ConsignmentItem).filter(
+        items = self.db_session.query(ConsignmentItem).filter(
             ConsignmentItem.consignment_id == consignment_id
         ).all()
         
@@ -343,7 +343,7 @@ class ConsignmentService(CRUDService):
     
     def get_active_consignments(self, customer_id: int = None) -> List[Dict[str, Any]]:
         """Get active consignments"""
-        query = self.db.query(Consignment).filter(
+        query = self.db_session.query(Consignment).filter(
             Consignment.status.in_(['PENDING', 'SHIPPED', 'RECEIVED_BY_CUSTOMER', 'PARTIALLY_SOLD'])
         )
         
@@ -361,7 +361,7 @@ class ConsignmentService(CRUDService):
                                           start_date: date = None, 
                                           end_date: date = None) -> Dict[str, Any]:
         """Get consignment performance summary"""
-        query = self.db.query(Consignment)
+        query = self.db_session.query(Consignment)
         
         if agreement_id:
             query = query.filter(Consignment.agreement_id == agreement_id)
@@ -411,7 +411,7 @@ class ConsignmentService(CRUDService):
         today = date.today()
         prefix = f"CS{today.strftime('%y%m%d')}"
         
-        last_consignment = self.db.query(Consignment).filter(
+        last_consignment = self.db_session.query(Consignment).filter(
             Consignment.consignment_number.like(f"{prefix}%")
         ).order_by(Consignment.id.desc()).first()
         
@@ -427,7 +427,7 @@ class ConsignmentService(CRUDService):
         """Update consignment totals"""
         consignment = self._get_or_404(Consignment, consignment_id)
         
-        items = self.db.query(ConsignmentItem).filter(
+        items = self.db_session.query(ConsignmentItem).filter(
             ConsignmentItem.consignment_id == consignment_id
         ).all()
         

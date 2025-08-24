@@ -144,7 +144,7 @@ class ConsignmentSalesService(CRUDService):
     
     def get_sales_by_consignment(self, consignment_id: int) -> List[Dict[str, Any]]:
         """Get all sales untuk consignment"""
-        sales = self.db.query(ConsignmentSale).filter(
+        sales = self.db_session.query(ConsignmentSale).filter(
             ConsignmentSale.consignment_id == consignment_id
         ).order_by(ConsignmentSale.sale_date.desc()).all()
         
@@ -153,7 +153,7 @@ class ConsignmentSalesService(CRUDService):
     def get_sales_summary(self, consignment_id: int = None, 
                          start_date: date = None, end_date: date = None) -> Dict[str, Any]:
         """Get sales summary"""
-        query = self.db.query(ConsignmentSale)
+        query = self.db_session.query(ConsignmentSale)
         
         if consignment_id:
             query = query.filter(ConsignmentSale.consignment_id == consignment_id)
@@ -198,7 +198,7 @@ class ConsignmentSalesService(CRUDService):
         today = date.today()
         prefix = f"CSL{today.strftime('%y%m%d')}"
         
-        last_sale = self.db.query(ConsignmentSale).filter(
+        last_sale = self.db_session.query(ConsignmentSale).filter(
             ConsignmentSale.sale_number.like(f"{prefix}%")
         ).order_by(ConsignmentSale.id.desc()).first()
         
@@ -214,7 +214,7 @@ class ConsignmentSalesService(CRUDService):
         """Update consignment status berdasarkan item sales"""
         consignment = self._get_or_404(Consignment, consignment_id)
         
-        items = self.db.query(ConsignmentItem).filter(
+        items = self.db_session.query(ConsignmentItem).filter(
             ConsignmentItem.consignment_id == consignment_id
         ).all()
         

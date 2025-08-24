@@ -34,7 +34,7 @@ class RackService(CRUDService):
         
         # Validate rack code uniqueness within warehouse
         rack_code = data.get('rack_code')
-        existing_rack = self.db.query(Rack).filter(
+        existing_rack = self.db_session.query(Rack).filter(
             and_(Rack.warehouse_id == warehouse_id, Rack.rack_code == rack_code)
         ).first()
         
@@ -52,7 +52,7 @@ class RackService(CRUDService):
         # Validate rack code uniqueness if changed
         rack_code = data.get('rack_code')
         if rack_code and rack_code != rack.rack_code:
-            existing_rack = self.db.query(Rack).filter(
+            existing_rack = self.db_session.query(Rack).filter(
                 and_(
                     Rack.warehouse_id == rack.warehouse_id,
                     Rack.rack_code == rack_code,
@@ -87,7 +87,7 @@ class RackService(CRUDService):
             )
         
         # Check if allocation already placed in another rack
-        existing_placement = self.db.query(RackAllocation).filter(
+        existing_placement = self.db_session.query(RackAllocation).filter(
             RackAllocation.allocation_id == allocation_id
         ).first()
         
@@ -104,13 +104,13 @@ class RackService(CRUDService):
             placed_by=self.current_user
         )
         
-        self.db.add(rack_allocation)
+        self.db_session.add(rack_allocation)
         
         # Update rack current quantity
         rack.current_quantity += quantity
         self._set_audit_fields(rack, is_update=True)
         
-        self.db.flush()
+        self.db_session.flush()
         
         return RackAllocationSchema().dump(rack_allocation)
     
@@ -120,7 +120,7 @@ class RackService(CRUDService):
         """Remove stock dari rack"""
         rack = self._get_or_404(Rack, rack_id)
         
-        rack_allocation = self.db.query(RackAllocation).filter(
+        rack_allocation = self.db_session.query(RackAllocation).filter(
             and_(
                 RackAllocation.rack_id == rack_id,
                 RackAllocation.allocation_id == allocation_id
@@ -141,7 +141,7 @@ class RackService(CRUDService):
         
         # Remove allocation if quantity becomes 0
         if rack_allocation.quantity <= 0:
-            self.db.delete(rack_allocation)
+            self.db_session.delete(rack_allocation)
         
         self._set_audit_fields(rack, is_update=True)
         
@@ -179,7 +179,7 @@ class RackService(CRUDService):
     def get_racks_by_warehouse(self, warehouse_id: int, 
                               include_inactive: bool = False) -> List[Dict[str, Any]]:
         """Get all racks dalam warehouse"""
-        query = self.db.query(Rack).filter(Rack.warehouse_id == warehouse_id)
+        query = self.db_session.query(Rack).filter(Rack.warehouse_id == warehouse_id)
         
         if not include_inactive:
             query = query.filter(Rack.is_active == True)
@@ -204,7 +204,7 @@ class RackService(CRUDService):
     def get_available_racks_for_allocation(self, warehouse_id: int, 
                                          min_capacity: int = None) -> List[Dict[str, Any]]:
         """Get racks yang available untuk allocation baru"""
-        query = self.db.query(Rack).filter(
+        query = self.db_session.query(Rack).filter(
             and_(
                 Rack.warehouse_id == warehouse_id,
                 Rack.is_active == True,
@@ -231,7 +231,7 @@ class RackService(CRUDService):
     
     def get_rack_allocations(self, rack_id: int) -> List[Dict[str, Any]]:
         """Get all allocations dalam rack"""
-        rack_allocations = self.db.query(RackAllocation).filter(
+        rack_allocations = self.db_session.query(RackAllocation).filter(
             RackAllocation.rack_id == rack_id
         ).all()
         
@@ -239,7 +239,7 @@ class RackService(CRUDService):
     
     def get_rack_utilization_report(self, warehouse_id: int = None) -> Dict[str, Any]:
         """Get rack utilization report"""
-        query = self.db.query(Rack).filter(Rack.is_active == True)
+        query = self.db_session.query(Rack).filter(Rack.is_active == True)
         
         if warehouse_id:
             query = query.filter(Rack.warehouse_id == warehouse_id)

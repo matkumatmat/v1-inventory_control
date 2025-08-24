@@ -40,7 +40,7 @@ class ConsignmentStatementService(CRUDService):
             raise ValidationError("Period start must be before period end")
         
         # Check if statement already exists for period
-        existing_statement = self.db.query(ConsignmentStatement).filter(
+        existing_statement = self.db_session.query(ConsignmentStatement).filter(
             and_(
                 ConsignmentStatement.agreement_id == agreement_id,
                 ConsignmentStatement.period_start == period_start,
@@ -142,7 +142,7 @@ class ConsignmentStatementService(CRUDService):
     
     def get_statements_by_agreement(self, agreement_id: int) -> List[Dict[str, Any]]:
         """Get all statements untuk agreement"""
-        statements = self.db.query(ConsignmentStatement).filter(
+        statements = self.db_session.query(ConsignmentStatement).filter(
             ConsignmentStatement.agreement_id == agreement_id
         ).order_by(ConsignmentStatement.period_end.desc()).all()
         
@@ -152,7 +152,7 @@ class ConsignmentStatementService(CRUDService):
         """Get overdue statements"""
         cutoff_date = date.today() - timedelta(days=days_overdue)
         
-        statements = self.db.query(ConsignmentStatement).filter(
+        statements = self.db_session.query(ConsignmentStatement).filter(
             and_(
                 ConsignmentStatement.payment_status.in_(['PENDING', 'PARTIAL']),
                 ConsignmentStatement.payment_due_date <= cutoff_date
@@ -172,7 +172,7 @@ class ConsignmentStatementService(CRUDService):
                                   period_start: date, period_end: date) -> Dict[str, Any]:
         """Calculate statement totals untuk period"""
         # Get all consignments dalam period
-        consignments = self.db.query(Consignment).filter(
+        consignments = self.db_session.query(Consignment).filter(
             and_(
                 Consignment.agreement_id == agreement_id,
                 Consignment.consignment_date >= period_start,
@@ -185,7 +185,7 @@ class ConsignmentStatementService(CRUDService):
         
         # Get sales dalam period
         consignment_ids = [c.id for c in consignments]
-        sales = self.db.query(ConsignmentSale).filter(
+        sales = self.db_session.query(ConsignmentSale).filter(
             and_(
                 ConsignmentSale.consignment_id.in_(consignment_ids),
                 ConsignmentSale.sale_date >= period_start,
@@ -198,7 +198,7 @@ class ConsignmentStatementService(CRUDService):
         total_commission = sum(sale.commission_amount for sale in sales)
         
         # Get returns dalam period
-        returns = self.db.query(ConsignmentReturn).filter(
+        returns = self.db_session.query(ConsignmentReturn).filter(
             and_(
                 ConsignmentReturn.consignment_id.in_(consignment_ids),
                 ConsignmentReturn.return_date >= period_start,
@@ -228,7 +228,7 @@ class ConsignmentStatementService(CRUDService):
         today = date.today()
         prefix = f"CST{today.strftime('%y%m%d')}"
         
-        last_statement = self.db.query(ConsignmentStatement).filter(
+        last_statement = self.db_session.query(ConsignmentStatement).filter(
             ConsignmentStatement.statement_number.like(f"{prefix}%")
         ).order_by(ConsignmentStatement.id.desc()).first()
         

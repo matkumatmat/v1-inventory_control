@@ -42,11 +42,10 @@ async def login(
         user_agent = request.headers.get("user-agent", "")
         
         # Authenticate user
-        auth_result = service_registry.auth_service.authenticate_user(
+        auth_result = await service_registry.auth_service.authenticate_user(
             username=login_data.username,
             password=login_data.password,
-            ip_address=ip_address,
-            user_agent=user_agent,
+
             remember_me=login_data.remember_me
         )
         
@@ -111,7 +110,7 @@ async def logout(
         user_agent = request.headers.get("user-agent", "")
         
         # Logout user
-        service_registry.auth_service.logout_user(
+        await service_registry.auth_service.logout_user(
             session_id=token_data['session_id'],
             user_id=token_data['user_id'],
             ip_address=ip_address,
@@ -141,7 +140,7 @@ async def get_current_user_profile(
         )
         
         # Get full user profile
-        user_profile = service_registry.user_service.get_user_profile(
+        user_profile = await service_registry.user_service.get_user_profile(
             token_data['user_id']
         )
         
@@ -177,7 +176,7 @@ async def change_password(
         )
         
         # Change password
-        result = service_registry.user_service.change_password(
+        result = await service_registry.user_service.change_password(
             user_id=token_data['user_id'],
             current_password=password_data['current_password'],
             new_password=password_data['new_password']
@@ -206,7 +205,7 @@ async def forgot_password(
     - username_or_email: Username atau email
     """
     try:
-        result = service_registry.user_service.reset_password(
+        result = await service_registry.user_service.reset_password(
             username_or_email=reset_data['username_or_email']
         )
         
@@ -233,7 +232,7 @@ async def reset_password(
     - new_password: New password
     """
     try:
-        result = service_registry.user_service.confirm_password_reset(
+        result = await service_registry.user_service.confirm_password_reset(
             reset_token=reset_data['reset_token'],
             new_password=reset_data['new_password']
         )

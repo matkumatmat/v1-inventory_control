@@ -181,8 +181,8 @@ class NotificationService(BaseService):
             sent_by=self.current_user
         )
         
-        self.db.add(log)
-        self.db.flush()
+        self.db_session.add(log)
+        self.db_session.flush()
     
     def _load_email_templates(self) -> Dict[str, Dict[str, str]]:
         """Load email templates - in production, load from database or files"""

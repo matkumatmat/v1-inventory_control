@@ -41,7 +41,7 @@ class CustomerAddressService(CRUDService):
             self._unset_other_default_addresses(customer_id)
         
         # If this is first address, make it default
-        existing_addresses_count = self.db.query(CustomerAddress).filter(
+        existing_addresses_count = self.db_session.query(CustomerAddress).filter(
             CustomerAddress.customer_id == customer_id
         ).count()
         
@@ -70,7 +70,7 @@ class CustomerAddressService(CRUDService):
         address = self._get_or_404(CustomerAddress, entity_id)
         
         # Cannot delete if it's the only address
-        other_addresses_count = self.db.query(CustomerAddress).filter(
+        other_addresses_count = self.db_session.query(CustomerAddress).filter(
             and_(
                 CustomerAddress.customer_id == address.customer_id,
                 CustomerAddress.id != entity_id,
@@ -104,7 +104,7 @@ class CustomerAddressService(CRUDService):
     def get_customer_addresses(self, customer_id: int, 
                              address_type: str = None) -> List[Dict[str, Any]]:
         """Get all addresses untuk customer"""
-        query = self.db.query(CustomerAddress).filter(
+        query = self.db_session.query(CustomerAddress).filter(
             and_(
                 CustomerAddress.customer_id == customer_id,
                 CustomerAddress.is_active == True
@@ -121,7 +121,7 @@ class CustomerAddressService(CRUDService):
     
     def get_default_address(self, customer_id: int) -> Dict[str, Any]:
         """Get default address untuk customer"""
-        address = self.db.query(CustomerAddress).filter(
+        address = self.db_session.query(CustomerAddress).filter(
             and_(
                 CustomerAddress.customer_id == customer_id,
                 CustomerAddress.is_default == True,
@@ -140,7 +140,7 @@ class CustomerAddressService(CRUDService):
     
     def _unset_other_default_addresses(self, customer_id: int, exclude_id: int = None):
         """Unset default flag dari addresses lain"""
-        query = self.db.query(CustomerAddress).filter(
+        query = self.db_session.query(CustomerAddress).filter(
             and_(
                 CustomerAddress.customer_id == customer_id,
                 CustomerAddress.is_default == True
@@ -157,7 +157,7 @@ class CustomerAddressService(CRUDService):
     
     def _set_new_default_address(self, customer_id: int, exclude_id: int = None):
         """Set address lain sebagai default ketika default address dihapus"""
-        query = self.db.query(CustomerAddress).filter(
+        query = self.db_session.query(CustomerAddress).filter(
             and_(
                 CustomerAddress.customer_id == customer_id,
                 CustomerAddress.is_active == True

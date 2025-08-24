@@ -78,7 +78,7 @@ class ShippingPlanService(CRUDService):
             raise BusinessRuleError(f"Cannot modify plan with status {plan.status}")
         
         # Get SO items
-        query = self.db.query(SalesOrderItem).filter(
+        query = self.db_session.query(SalesOrderItem).filter(
             SalesOrderItem.sales_order_id == so_id
         )
         
@@ -90,7 +90,7 @@ class ShippingPlanService(CRUDService):
         created_items = []
         for so_item in so_items:
             # Check if item already in plan
-            existing_item = self.db.query(ShippingPlanItem).filter(
+            existing_item = self.db_session.query(ShippingPlanItem).filter(
                 and_(
                     ShippingPlanItem.shipping_plan_id == plan_id,
                     ShippingPlanItem.sales_order_item_id == so_item.id
@@ -120,8 +120,8 @@ class ShippingPlanService(CRUDService):
             plan_item = ShippingPlanItem(**validated_data)
             self._set_audit_fields(plan_item)
             
-            self.db.add(plan_item)
-            self.db.flush()
+            self.db_session.add(plan_item)
+            self.db_session.flush()
             
             created_items.append(ShippingPlanItemSchema().dump(plan_item))
         
@@ -140,7 +140,7 @@ class ShippingPlanService(CRUDService):
             raise BusinessRuleError(f"Only draft plans can be confirmed. Current status: {plan.status}")
         
         # Validate plan has items
-        items_count = self.db.query(ShippingPlanItem).filter(
+        items_count = self.db_session.query(ShippingPlanItem).filter(
             ShippingPlanItem.shipping_plan_id == plan_id
         ).count()
         
@@ -176,7 +176,7 @@ class ShippingPlanService(CRUDService):
             raise BusinessRuleError("Only confirmed plans can be allocated")
         
         # Get plan items yang belum allocated
-        plan_items = self.db.query(ShippingPlanItem).filter(
+        plan_items = self.db_session.query(ShippingPlanItem).filter(
             and_(
                 ShippingPlanItem.shipping_plan_id == plan_id,
                 ShippingPlanItem.allocated_quantity < ShippingPlanItem.planned_quantity
@@ -242,7 +242,7 @@ class ShippingPlanService(CRUDService):
         """Get plan dengan all items"""
         plan = self._get_or_404(ShippingPlan, plan_id)
         
-        items = self.db.query(ShippingPlanItem).filter(
+        items = self.db_session.query(ShippingPlanItem).filter(
             ShippingPlanItem.shipping_plan_id == plan_id
         ).all()
         
@@ -253,7 +253,7 @@ class ShippingPlanService(CRUDService):
     
     def get_pending_plans(self, customer_id: int = None) -> List[Dict[str, Any]]:
         """Get pending shipping plans"""
-        query = self.db.query(ShippingPlan).filter(
+        query = self.db_session.query(ShippingPlan).filter(
             ShippingPlan.status.in_(['CONFIRMED', 'ALLOCATED'])
         )
         
@@ -269,7 +269,7 @@ class ShippingPlanService(CRUDService):
         """Get overdue shipping plans"""
         today = date.today()
         
-        query = self.db.query(ShippingPlan).filter(
+        query = self.db_session.query(ShippingPlan).filter(
             and_(
                 ShippingPlan.status.in_(['CONFIRMED', 'ALLOCATED', 'PROCESSING']),
                 ShippingPlan.planned_delivery_date < today
@@ -292,7 +292,7 @@ class ShippingPlanService(CRUDService):
         prefix = f"SP{today.strftime('%y%m%d')}"
         
         # Get next sequence number
-        last_plan = self.db.query(ShippingPlan).filter(
+        last_plan = self.db_session.query(ShippingPlan).filter(
             ShippingPlan.plan_number.like(f"{prefix}%")
         ).order_by(ShippingPlan.id.desc()).first()
         
@@ -316,7 +316,7 @@ class ShippingPlanService(CRUDService):
         """Update plan total quantities"""
         plan = self._get_or_404(ShippingPlan, plan_id)
         
-        items = self.db.query(ShippingPlanItem).filter(
+        items = self.db_session.query(ShippingPlanItem).filter(
             ShippingPlanItem.shipping_plan_id == plan_id
         ).all()
         
@@ -338,7 +338,7 @@ class ShippingPlanService(CRUDService):
     
     def _is_plan_fully_allocated(self, plan_id: int) -> bool:
         """Check if plan fully allocated"""
-        unallocated_items = self.db.query(ShippingPlanItem).filter(
+        unallocated_items = self.db_session.query(ShippingPlanItem).filter(
             and_(
                 ShippingPlanItem.shipping_plan_id == plan_id,
                 ShippingPlanItem.allocated_quantity < ShippingPlanItem.planned_quantity

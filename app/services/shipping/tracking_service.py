@@ -53,7 +53,7 @@ class ShipmentTrackingService(CRUDService):
     
     def get_shipment_tracking_history(self, shipment_id: int) -> List[Dict[str, Any]]:
         """Get tracking history untuk shipment"""
-        tracking_records = self.db.query(ShipmentTracking).filter(
+        tracking_records = self.db_session.query(ShipmentTracking).filter(
             ShipmentTracking.shipment_id == shipment_id
         ).order_by(ShipmentTracking.tracking_date.desc()).all()
         
@@ -61,7 +61,7 @@ class ShipmentTrackingService(CRUDService):
     
     def get_latest_tracking_status(self, shipment_id: int) -> Optional[Dict[str, Any]]:
         """Get latest tracking status"""
-        latest_tracking = self.db.query(ShipmentTracking).filter(
+        latest_tracking = self.db_session.query(ShipmentTracking).filter(
             ShipmentTracking.shipment_id == shipment_id
         ).order_by(ShipmentTracking.tracking_date.desc()).first()
         
@@ -72,7 +72,7 @@ class ShipmentTrackingService(CRUDService):
     def track_by_tracking_number(self, tracking_number: str) -> List[Dict[str, Any]]:
         """Track shipment by tracking number"""
         # Find shipment by tracking number
-        shipment = self.db.query(Shipment).filter(
+        shipment = self.db_session.query(Shipment).filter(
             Shipment.tracking_number == tracking_number
         ).first()
         
