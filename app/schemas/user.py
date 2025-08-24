@@ -146,12 +146,11 @@ class UserCreateSchema(BaseModel):
         return validate_phone_number(v)
 
     @model_validator(mode='after')
-    def validate_passwords_match(cls, values):
+    def validate_passwords_match(self):
         """Validate password confirmation"""
-        password, confirm_password = values.get('password'), values.get('confirm_password')
-        if password != confirm_password:
+        if self.password != self.confirm_password:
             raise ValueError('Passwords do not match')
-        return values
+        return self
     
     @field_validator('password')
     def validate_password_strength(cls, v):
@@ -198,12 +197,11 @@ class PasswordChangeSchema(BaseModel):
     confirm_password: str
     
     @model_validator(mode='after')
-    def validate_passwords_match(cls, values):
+    def validate_passwords_match(self):
         """Validate password confirmation"""
-        new_password, confirm_password = values.get('new_password'), values.get('confirm_password')
-        if new_password != confirm_password:
+        if self.new_password != self.confirm_password:
             raise ValueError('Passwords do not match')
-        return values
+        return self
     
     @field_validator('new_password')
     def validate_password_strength(cls, v):

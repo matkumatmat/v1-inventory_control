@@ -7,7 +7,7 @@ Service untuk User management dan profile operations
 
 import hashlib
 import secrets
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc, asc
@@ -33,40 +33,59 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('CREATE', 'User')
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create user dengan validation"""
+    async def create(self, user_data: Union[Dict[str, Any], UserCreateSchema]) -> User:
+        """
+        Create user dengan validation.
+        This method defensively handles either a dictionary or a Pydantic model.
+        """
+        if isinstance(user_data, UserCreateSchema):
+            data = user_data.model_dump()
+        else:
+            data = user_data
+
         # Validate username uniqueness
         username = data.get('username')
         if username:
-            self._validate_unique_field(User, 'username', username,
+            await self._validate_unique_field(User, 'username', username,
                                       error_message=f"Username '{username}' already exists")
         
         # Validate email uniqueness
         email = data.get('email')
         if email:
-            self._validate_unique_field(User, 'email', email,
+            await self._validate_unique_field(User, 'email', email,
                                       error_message=f"Email '{email}' already exists")
         
-        # Hash password
+        # Hash password and remove confirmation
         if 'password' in data:
-            data['password_hash'] = self._hash_password(data['password'])
-            del data['password']  # Remove plain password
-        
+            data['password_hash'] = self._hash_password(data.pop('password'))
+        if 'confirm_password' in data:
+            del data['confirm_password']
+
+        # Construct full_name
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
+        data['full_name'] = f"{first_name} {last_name}".strip()
+
         # Set password expiry (90 days from creation)
         data['password_expires_at'] = datetime.utcnow() + timedelta(days=90)
         
-        # Create user
-        user_data = super().create(data)
+        # Create user entity
+        user = self.model_class(**data)
+        self._set_audit_fields(user)
         
+        self.db_session.add(user)
+        await self.db_session.flush()
+
         # Send welcome notification
         if self.notification_service and email:
-            self.notification_service.send_welcome_email(
+            # Assuming send_welcome_email is async, if not, remove await
+            await self.notification_service.send_welcome_email(
                 email=email,
                 username=username,
                 full_name=data.get('full_name')
             )
         
-        return user_data
+        return user
     
     @transactional
     @audit_log('UPDATE', 'User')

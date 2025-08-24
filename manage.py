@@ -54,7 +54,18 @@ def init_db():
 def create_admin(
     username: Annotated[str, typer.Argument(help="Username untuk admin baru.")],
     email: Annotated[str, typer.Argument(help="Email untuk admin baru (harus unik).")],
-    password: Annotated[str, typer.Argument(help="Password untuk admin baru.")]
+    password: Annotated[str, typer.Argument(help="Password untuk admin baru.")],
+    confirm_password: Annotated[str, typer.Argument(help="Konfirmasi password.")],
+    user_id: Annotated[str, typer.Argument(help="ID unik untuk user.")],
+    first_name: Annotated[str, typer.Argument(help="Nama depan user.")],
+    last_name: Annotated[str, typer.Argument(help="Nama belakang user.")],
+    phone: Annotated[str, typer.Option(help="Nomor telepon user.")] = None,
+    emergency_contact: Annotated[str, typer.Option(help="Kontak darurat user.")] = None,
+    department: Annotated[str, typer.Option(help="Departemen user.")] = None,
+    position: Annotated[str, typer.Option(help="Posisi atau jabatan user.")] = None,
+    timezone: Annotated[str, typer.Option(help="Zona waktu user.")] = 'Asia/Jakarta',
+    language: Annotated[str, typer.Option(help="Bahasa user.")] = 'id',
+    assigned_warehouse_id: Annotated[int, typer.Option(help="ID gudang yang ditugaskan.")] = None,
 ):
     """
     Membuat user baru dengan role 'admin'.
@@ -64,25 +75,45 @@ def create_admin(
     from app.services.auth.user_service import UserService
     from app.schemas.user import UserCreateSchema
     from app.services.exceptions import ValidationError
+    from pydantic import ValidationError as PydanticValidationError
 
     async def add_admin_user():
         """Fungsi async untuk menambah admin."""
         typer.echo(f"Mencoba membuat admin '{username}'...")
+        
+        try:
+            # Validasi schema di awal
+            user_schema = UserCreateSchema(
+                username=username,
+                email=email,
+                password=password,
+                confirm_password=confirm_password,
+                user_id=user_id,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                emergency_contact=emergency_contact,
+                role='admin', # Hardcode role sebagai admin
+                department=department,
+                position=position,
+                timezone=timezone,
+                language=language,
+                assigned_warehouse_id=assigned_warehouse_id
+            )
+        except PydanticValidationError as e:
+            typer.secho(f"🔥 Gagal: Error validasi input - {e}", fg=typer.colors.RED)
+            return
+
         # Kita butuh session database untuk berinteraksi dengan DB
         async for session in get_db_session():
             try:
                 user_service = UserService(session)
-                user_schema = UserCreateSchema(
-                    username=username,
-                    email=email,
-                    password=password,
-                    role='admin', # Hardcode role sebagai admin
-                    is_active=True,
-                    full_name=username.capitalize() # Default full_name
-                )
-                new_user = await user_service.create_user(user_schema)
+                
+                # Panggil service dengan data dari schema (dalam bentuk dict)
+                new_user = await user_service.create(user_schema.model_dump())
+                
                 typer.secho(f"✅ Admin '{new_user.username}' berhasil dibuat!", fg=typer.colors.GREEN)
-            except ValidationError as e:
+            except (ValidationError, PydanticValidationError) as e:
                 typer.secho(f"🔥 Gagal: Validasi error - {e}", fg=typer.colors.RED)
             except Exception as e:
                 typer.secho(f"🔥 Gagal membuat admin: {e}", fg=typer.colors.RED)

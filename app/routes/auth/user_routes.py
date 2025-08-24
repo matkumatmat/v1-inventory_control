@@ -78,7 +78,7 @@ async def create_user(
         # Check permission (implement admin check)
         # service_registry.auth_service.require_permission(current_user_id, 'admin')
         
-        user = service_registry.user_service.create(user_data.dict())
+        user = await service_registry.user_service.create(user_data.model_dump())
         
         return APIResponse.success(
             data=user,
