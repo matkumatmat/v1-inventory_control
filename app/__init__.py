@@ -18,7 +18,7 @@ from typing import Optional
 
 # Import semua router dari modulnya masing-masing
 from .routes.auth import auth_router, user_router
-from .routes.product import product_router, batch_router, allocation_router,package_type_router ,product_type_router , temperature_type_router , allocation_type_router , movement_type_router
+from .routes.product import product_router, batch_router, allocation_router, product_type_router, package_type_router, temperature_type_router, allocation_type_router, movement_type_router
 from .routes.customer.customer_routes import customer_router
 from .routes.customer.sector_type_routes import sector_type_router
 from .routes.customer.customer_type_routes import customer_type_router
@@ -27,8 +27,16 @@ from .routes.sales.shipping_plan_routes import shipping_plan_router
 from .routes.sales.packing_slip_routes import packing_slip_router
 from .routes.warehouse_ops.picking_routes import picking_router
 from .routes.warehouse_ops.packing_routes import packing_router
+#from .routes.warehouse_ops.packaging_material_routes import packaging_material_router
 from .routes.shipping.shipment_routes import shipment_router
 from .routes.shipping.carrier_routes import carrier_router
+#from .routes.shipping.shipping_method_routes import shipping_method_router
+#from .routes.shipping.carrier_type_routes import carrier_type_router
+#from .routes.system.document_type_routes import document_type_router
+#from .routes.system.status_type_routes import status_type_router
+#from .routes.system.priority_level_routes import priority_level_router
+#from .routes.system.notification_type_routes import notification_type_router
+#from .routes.warehouse.location_type_routes import location_type_router
 
 # Import services dan dependencies
 from .services import ServiceRegistry, create_service_registry
@@ -129,8 +137,16 @@ def setup_routes(app: FastAPI):
     app.include_router(packing_slip_router, prefix="/api/packing-slips", tags=["Packing Slips"])
     app.include_router(picking_router, prefix="/api/picking", tags=["Warehouse - Picking"])
     app.include_router(packing_router, prefix="/api/packing", tags=["Warehouse - Packing"])
+    #app.include_router(packaging_material_router, prefix="/api/packaging-materials", tags=["Packaging Materials (Master Data)"])
     app.include_router(shipment_router, prefix="/api/shipments", tags=["Shipping"])
     app.include_router(carrier_router, prefix="/api/carriers", tags=["Carriers (Master Data)"])
+    #app.include_router(carrier_type_router, prefix="/api/carrier-types", tags=["Carrier Types (Master Data)"])
+    #app.include_router(shipping_method_router, prefix="/api/shipping-methods", tags=["Shipping Methods (Master Data)"])
+    #app.include_router(document_type_router, prefix="/api/document-types", tags=["Document Types (Master Data)"])
+    #app.include_router(status_type_router, prefix="/api/status-types", tags=["Status Types (Master Data)"])
+    #app.include_router(priority_level_router, prefix="/api/priority-levels", tags=["Priority Levels (Master Data)"])
+    #app.include_router(notification_type_router, prefix="/api/notification-types", tags=["Notification Types (Master Data)"])
+    #app.include_router(location_type_router, prefix="/api/location-types", tags=["Location Types (Master Data)"])
 
 def create_app() -> FastAPI:
     """
