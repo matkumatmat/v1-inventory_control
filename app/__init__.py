@@ -18,8 +18,10 @@ from typing import Optional
 
 # Import semua router dari modulnya masing-masing
 from .routes.auth import auth_router, user_router
-from .routes.product import product_router, batch_router, allocation_router
+from .routes.product import product_router, batch_router, allocation_router#, product_type_router#, #package_type_router, temperature_type_router, allocation_type_router, movement_type_router
 from .routes.customer.customer_routes import customer_router
+#from .routes.customer.sector_type_routes import sector_type_router
+#from .routes.customer.customer_type_routes import customer_type_router
 from .routes.sales.sales_routes import sales_router
 from .routes.sales.shipping_plan_routes import shipping_plan_router
 from .routes.sales.packing_slip_routes import packing_slip_router
@@ -110,11 +112,18 @@ def setup_routes(app: FastAPI):
     app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
     app.include_router(user_router, prefix="/api/users", tags=["User Management"])
     app.include_router(product_router, prefix="/api/products", tags=["Products"])
+    #app.include_router(product_type_router, prefix="/api/product-types", tags=["Product Types (Master Data)"])
+    #app.include_router(package_type_router, prefix="/api/package-types", tags=["Package Types (Master Data)"])
+    #app.include_router(temperature_type_router, prefix="/api/temperature-types", tags=["Temperature Types (Master Data)"])
+    #app.include_router(allocation_type_router, prefix="/api/allocation-types", tags=["Allocation Types (Master Data)"])
+    #app.include_router(movement_type_router, prefix="/api/movement-types", tags=["Movement Types (Master Data)"])
     app.include_router(batch_router, prefix="/api/batches", tags=["Batches"])
     app.include_router(allocation_router, prefix="/api/allocations", tags=["Allocations"])
 
     # Core WMS Workflow Routers
     app.include_router(customer_router, prefix="/api/customers", tags=["Customers"])
+    #app.include_router(customer_type_router, prefix="/api/customer-types", tags=["Customer Types (Master Data)"])
+    #app.include_router(sector_type_router, prefix="/api/sector-types", tags=["Sector Types (Master Data)"])
     app.include_router(sales_router, prefix="/api/sales-orders", tags=["Sales Orders"])
     app.include_router(shipping_plan_router, prefix="/api/shipping-plans", tags=["Shipping Plans"])
     app.include_router(packing_slip_router, prefix="/api/packing-slips", tags=["Packing Slips"])
