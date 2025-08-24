@@ -27,12 +27,12 @@ from .routes.sales.shipping_plan_routes import shipping_plan_router
 from .routes.sales.packing_slip_routes import packing_slip_router
 from .routes.warehouse_ops.picking_routes import picking_router
 from .routes.warehouse_ops.packing_routes import packing_router
-#from .routes.warehouse_ops.packaging_material_routes import packaging_material_router
+from .routes.warehouse_ops.packaging_material_routes import packaging_material_router
 from .routes.shipping.shipment_routes import shipment_router
 from .routes.shipping.carrier_routes import carrier_router
 from .routes.shipping.shipping_method_routes import shipping_method_router
 from .routes.shipping.carrier_type_routes import carrier_type_router
-#from .routes.system.document_type_routes import document_type_router
+from .routes.system.document_type_routes import document_type_router
 from .routes.system.status_type_routes import status_type_router
 #from .routes.system.priority_level_routes import priority_level_router
 #from .routes.system.notification_type_routes import notification_type_router
@@ -137,12 +137,12 @@ def setup_routes(app: FastAPI):
     app.include_router(packing_slip_router, prefix="/api/packing-slips", tags=["Packing Slips"])
     app.include_router(picking_router, prefix="/api/picking", tags=["Warehouse - Picking"])
     app.include_router(packing_router, prefix="/api/packing", tags=["Warehouse - Packing"])
-    #app.include_router(packaging_material_router, prefix="/api/packaging-materials", tags=["Packaging Materials (Master Data)"])
+    app.include_router(packaging_material_router, prefix="/api/packaging-materials", tags=["Packaging Materials (Master Data)"])
     app.include_router(shipment_router, prefix="/api/shipments", tags=["Shipping"])
     app.include_router(carrier_router, prefix="/api/carriers", tags=["Carriers (Master Data)"])
     app.include_router(carrier_type_router, prefix="/api/carrier-types", tags=["Carrier Types (Master Data)"])
     app.include_router(shipping_method_router, prefix="/api/shipping-methods", tags=["Shipping Methods (Master Data)"])
-    #app.include_router(document_type_router, prefix="/api/document-types", tags=["Document Types (Master Data)"])
+    app.include_router(document_type_router, prefix="/api/document-types", tags=["Document Types (Master Data)"])
     app.include_router(status_type_router, prefix="/api/status-types", tags=["Status Types (Master Data)"])
     #app.include_router(priority_level_router, prefix="/api/priority-levels", tags=["Priority Levels (Master Data)"])
     #app.include_router(notification_type_router, prefix="/api/notification-types", tags=["Notification Types (Master Data)"])
