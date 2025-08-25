@@ -1,3 +1,6 @@
+import tracemalloc
+tracemalloc.start()
+
 # backends/main.py
 
 # --- FIX: Tambahkan dua baris ini di paling atas ---

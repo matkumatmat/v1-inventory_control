@@ -429,6 +429,11 @@ class ServiceRegistry:
     def auth_service(self) -> AuthService:
         """Get AuthService"""
         return self._services['auth']
+
+    @property
+    def user_service(self) -> UserService:
+        """Get UserService"""
+        return self._services['user']
     
     @property
     def erp_service(self) -> ERPService:

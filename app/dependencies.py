@@ -30,7 +30,7 @@ async def get_current_user(
     auth_service = service_registry.auth_service
     
     try:
-        token_data = auth_service.verify_access_token(token)
+        token_data = await auth_service.verify_access_token(token)
         return token_data
     except AuthenticationError:
         raise HTTPException(
@@ -63,7 +63,7 @@ async def get_service_registry_optional(
         try:
             service_registry = create_service_registry(db_session, settings.dict())
             auth_service = service_registry.auth_service
-            token_data = auth_service.verify_access_token(credentials.credentials)
+            token_data = await auth_service.verify_access_token(credentials.credentials)
             current_user = token_data.get('username')
         except:
             pass  # Ignore auth errors for optional auth
