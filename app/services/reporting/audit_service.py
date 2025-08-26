@@ -8,7 +8,7 @@ CRITICAL SERVICE untuk audit logging dan compliance tracking
 import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, func, desc, select
 
 from ..base import BaseService, transactional
@@ -17,7 +17,7 @@ from ...models import AuditLog, UserActivity
 class AuditService(BaseService):
     """CRITICAL SERVICE untuk Audit dan Compliance"""
     
-    def __init__(self, db_session: Session, current_user: str = None):
+    def __init__(self, db_session: AsyncSession, current_user: str = None):
         super().__init__(db_session, current_user)
     
     @transactional

@@ -7,8 +7,8 @@ Service untuk Inventory reports dan analytics
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, desc, case
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, func, desc, case, select
 
 from ..base import BaseService
 from ...models import Product, Batch, Allocation, StockMovement, Warehouse, Rack, RackAllocation
@@ -16,18 +16,19 @@ from ...models import Product, Batch, Allocation, StockMovement, Warehouse, Rack
 class InventoryReportService(BaseService):
     """Service untuk Inventory Reports"""
     
-    def __init__(self, db_session: Session, current_user: str = None,
+    def __init__(self, db_session: AsyncSession, current_user: str = None,
                  audit_service=None):
         super().__init__(db_session, current_user, audit_service)
     
-    def generate_stock_summary_report(self, warehouse_id: int = None,
+    async def generate_stock_summary_report(self, warehouse_id: int = None,
                                     as_of_date: date = None) -> Dict[str, Any]:
         """Generate comprehensive stock summary report"""
         if not as_of_date:
             as_of_date = date.today()
         
-        query = self.db_session.query(Product).filter(Product.is_active == True)
-        products = query.all()
+        query = select(Product).filter(Product.is_active == True)
+        result = await self.db_session.execute(query)
+        products = result.scalars().all()
         
         report_data = []
         total_products = 0
@@ -35,9 +36,9 @@ class InventoryReportService(BaseService):
         
         for product in products:
             # Calculate stock levels
-            stock_data = self._calculate_product_stock(product.id, warehouse_id, as_of_date)
+            stock_data = await self._calculate_product_stock(product.id, warehouse_id, as_of_date)
             
-            if stock_data['total_stock'] > 0:  # Only include products with stock
+            if stock_data['available_stock'] > 0:  # Only include products with stock
                 report_data.append({
                     'product_code': product.product_code,
                     'product_name': product.name,
@@ -65,12 +66,12 @@ class InventoryReportService(BaseService):
             'data': report_data
         }
     
-    def generate_expiry_report(self, days_ahead: int = 30, 
+    async def generate_expiry_report(self, days_ahead: int = 30, 
                              warehouse_id: int = None) -> Dict[str, Any]:
         """Generate expiry report"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = self.db_session.query(Batch).filter(
+        query = select(Batch).filter(
             and_(
                 Batch.expiry_date <= cutoff_date,
                 Batch.expiry_date >= date.today(),
@@ -84,13 +85,14 @@ class InventoryReportService(BaseService):
                 Rack.warehouse_id == warehouse_id
             )
         
-        batches = query.all()
+        result = await self.db_session.execute(query)
+        batches = result.scalars().unique().all()
         
         report_data = []
         total_value_at_risk = 0
         
         for batch in batches:
-            available_stock = self._get_available_stock_for_batch(batch.id)
+            available_stock = await self._get_available_stock_for_batch(batch.id)
             
             if available_stock > 0:
                 days_to_expiry = (batch.expiry_date - date.today()).days
@@ -124,10 +126,10 @@ class InventoryReportService(BaseService):
             'data': report_data
         }
     
-    def generate_movement_report(self, start_date: date, end_date: date,
+    async def generate_movement_report(self, start_date: date, end_date: date,
                                product_id: int = None, warehouse_id: int = None) -> Dict[str, Any]:
         """Generate stock movement report"""
-        query = self.db_session.query(StockMovement).filter(
+        query = select(StockMovement).filter(
             and_(
                 StockMovement.movement_date >= start_date,
                 StockMovement.movement_date <= end_date
@@ -139,7 +141,8 @@ class InventoryReportService(BaseService):
                 Batch.product_id == product_id
             )
         
-        movements = query.all()
+        result = await self.db_session.execute(query)
+        movements = result.scalars().unique().all()
         
         report_data = []
         total_in = 0
@@ -182,22 +185,25 @@ class InventoryReportService(BaseService):
             'data': report_data
         }
     
-    def generate_warehouse_utilization_report(self, warehouse_id: int = None) -> Dict[str, Any]:
+    async def generate_warehouse_utilization_report(self, warehouse_id: int = None) -> Dict[str, Any]:
         """Generate warehouse utilization report"""
-        query = self.db_session.query(Warehouse).filter(Warehouse.is_active == True)
+        query = select(Warehouse).filter(Warehouse.is_active == True)
         
         if warehouse_id:
             query = query.filter(Warehouse.id == warehouse_id)
         
-        warehouses = query.all()
+        result = await self.db_session.execute(query)
+        warehouses = result.scalars().all()
         
         report_data = []
         
         for warehouse in warehouses:
             # Get racks in this warehouse
-            racks = self.db_session.query(Rack).filter(
+            racks_query = select(Rack).filter(
                 and_(Rack.warehouse_id == warehouse.id, Rack.is_active == True)
-            ).all()
+            )
+            result = await self.db_session.execute(racks_query)
+            racks = result.scalars().all()
             
             total_capacity = sum(rack.max_capacity or 0 for rack in racks)
             total_usage = sum(rack.current_quantity or 0 for rack in racks)
@@ -236,18 +242,19 @@ class InventoryReportService(BaseService):
             'data': report_data
         }
     
-    def _calculate_product_stock(self, product_id: int, warehouse_id: int = None,
+    async def _calculate_product_stock(self, product_id: int, warehouse_id: int = None,
                                as_of_date: date = None) -> Dict[str, Any]:
         """Calculate stock levels for a product"""
         # Get all batches for product
-        batches_query = self.db_session.query(Batch).filter(
+        batches_query = select(Batch).filter(
             and_(Batch.product_id == product_id, Batch.status == 'ACTIVE')
         )
         
         if as_of_date:
             batches_query = batches_query.filter(Batch.received_date <= as_of_date)
         
-        batches = batches_query.all()
+        result = await self.db_session.execute(batches_query)
+        batches = result.scalars().all()
         
         total_received = sum(batch.received_quantity for batch in batches)
         total_allocated = 0
@@ -256,14 +263,17 @@ class InventoryReportService(BaseService):
         
         # Calculate allocations
         for batch in batches:
-            allocations = self.db_session.query(Allocation).filter(
+            allocations_query = select(Allocation).filter(
                 and_(Allocation.batch_id == batch.id, Allocation.status == 'active')
             )
             
             if as_of_date:
-                allocations = allocations.filter(Allocation.allocation_date <= as_of_date)
+                allocations_query = allocations_query.filter(Allocation.allocation_date <= as_of_date)
             
-            for allocation in allocations.all():
+            result = await self.db_session.execute(allocations_query)
+            allocations = result.scalars().all()
+
+            for allocation in allocations:
                 total_allocated += allocation.allocated_quantity
                 total_shipped += allocation.shipped_quantity
                 total_value += allocation.allocated_quantity * (allocation.unit_value or 0)
@@ -279,16 +289,17 @@ class InventoryReportService(BaseService):
             'total_value': round(total_value, 2)
         }
     
-    def _get_available_stock_for_batch(self, batch_id: int) -> int:
+    async def _get_available_stock_for_batch(self, batch_id: int) -> int:
         """Get available stock for specific batch"""
-        batch = self.db_session.query(Batch).filter(Batch.id == batch_id).first()
+        result = await self.db_session.execute(select(Batch).filter(Batch.id == batch_id))
+        batch = result.scalars().first()
         if not batch:
             return 0
         
-        total_allocated = self.db_session.query(
-            func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)
-        ).filter(
+        total_allocated_query = select(func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)).filter(
             and_(Allocation.batch_id == batch_id, Allocation.status == 'active')
-        ).scalar() or 0
+        )
+        result = await self.db_session.execute(total_allocated_query)
+        total_allocated = result.scalar() or 0
         
         return batch.received_quantity - total_allocated
