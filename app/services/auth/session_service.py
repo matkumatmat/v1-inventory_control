@@ -8,7 +8,7 @@ Service untuk User Session management
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, NotFoundError
@@ -23,9 +23,10 @@ class UserSessionService(CRUDService):
     update_schema = UserSessionUpdateSchema
     response_schema = UserSessionSchema
     
-    def get_active_sessions(self, user_id: int = None) -> List[Dict[str, Any]]:
+    async def get_active_sessions(self, user_id: int = None) -> List[Dict[str, Any]]:
         """Get active sessions"""
-        query = self.db_session.query(UserSession).filter(
+        #query = self.db_session.query(UserSession).filter(
+        stmt = select(UserSession).where(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
@@ -33,19 +34,27 @@ class UserSessionService(CRUDService):
         )
         
         if user_id:
-            query = query.filter(UserSession.user_id == user_id)
+            #query = query.filter(UserSession.user_id == user_id)
+            stmt = stmt.where(UserSession.user_id == user_id)
+
         
-        sessions = query.order_by(UserSession.last_activity.desc()).all()
+        #sessions = query.order_by(UserSession.last_activity.desc()).all()
+        stmt = stmt.order_by(UserSession.last_activity.desc())
+        result = await self.db_session.execute(stmt)
+        sessions = result.scalars().all()
         return self.response_schema(many=True).dump(sessions)
     
     @transactional
     @audit_log('TERMINATE_SESSION', 'UserSession')
-    def terminate_session(self, session_id: str, reason: str = 'ADMIN') -> bool:
+    async def terminate_session(self, session_id: str, reason: str = 'ADMIN') -> bool:
         """Terminate specific session"""
-        session = self.db_session.query(UserSession).filter(
+        #session = self.db_session.query(UserSession).filter(
+        stmt = select(UserSession).where(            
             UserSession.session_id == session_id
-        ).first()
+        )
         
+        result = await self.db_session.execute(stmt)
+        session = result.scalars().first()
         if not session:
             raise NotFoundError('UserSession', session_id)
         
@@ -56,14 +65,17 @@ class UserSessionService(CRUDService):
     
     @transactional
     @audit_log('CLEANUP_SESSIONS', 'UserSession')
-    def cleanup_expired_sessions(self) -> int:
+    async def cleanup_expired_sessions(self) -> int:
         """Cleanup expired sessions"""
-        expired_sessions = self.db_session.query(UserSession).filter(
+        #expired_sessions = self.db_session.query(UserSession).filter(
+        stmt = select(UserSession).where(    
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at <= datetime.utcnow()
             )
-        ).all()
+        )
+        result = await self.db_session.execute(stmt)
+        expired_sessions = result.scalars().all()
         
         count = 0
         for session in expired_sessions:
@@ -73,26 +85,36 @@ class UserSessionService(CRUDService):
         
         return count
     
-    def get_session_statistics(self) -> Dict[str, Any]:
+    async def get_session_statistics(self) -> Dict[str, Any]:
         """Get session statistics"""
         # Active sessions
-        active_sessions = self.db_session.query(UserSession).filter(
+        #active_sessions = self.db_session.query(UserSession).filter(
+        active_stmt = select(func.count(UserSession.id)).where(    
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
             )
-        ).count()
-        
+        )
+        active_sessions_result =  await self.db_session.execute(active_stmt)
+        active_sessions_result = active_sessions_result.scalar_one()
         # Sessions today
         today = datetime.utcnow().date()
-        sessions_today = self.db_session.query(UserSession).filter(
+        today_stmt = select(func.count(UserSession.id)).where(
+        #sessions_today = self.db_session.query(UserSession).filter(
             func.date(UserSession.created_at) == today
-        ).count()
+        )
+
+        sessions_today_result = await self.db_session.execute(today_stmt)
+        sessions_today = sessions_today_result.scalar_one()
+
         
         # Unique users today
-        unique_users_today = self.db_session.query(UserSession.user_id).filter(
+        #unique_users_today = self.db_session.query(UserSession.user_id).filter(
+        unique_users_stmt = select(func.count(func.distinct(UserSession.user_id))).where(
             func.date(UserSession.created_at) == today
-        ).distinct().count()
+        )
+        unique_user_today_result = await self.db_session.execute(unique_users_stmt)
+        unique_users_today = unique_user_today_result.scalar_one()
         
         return {
             'active_sessions': active_sessions,
