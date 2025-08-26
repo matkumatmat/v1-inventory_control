@@ -183,6 +183,7 @@ async def change_password(
         # Change password
         result = await service_registry.user_service.change_password(
             user_id=token_data['user_id'],
+            username=token_data['username'],
             current_password=password_data['current_password'],
             new_password=password_data['new_password'],
             ip_address=ip_address,

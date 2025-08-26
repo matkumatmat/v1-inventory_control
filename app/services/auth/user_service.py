@@ -9,12 +9,12 @@ import hashlib
 import secrets
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import and_, or_, func, desc, asc, select
 
 
 from ..base import CRUDService, transactional, audit_log
-from ..exceptions import ValidationError, ConflictError, AuthenticationError
+from ..exceptions import ValidationError, ConflictError, AuthenticationError, NotFoundError
 from ...models import User, UserSession, UserActivity
 from ...schemas import UserSchema, UserCreateSchema, UserUpdateSchema, PasswordChangeSchema
 
@@ -116,9 +116,13 @@ class UserService(CRUDService):
     @transactional
     async def change_password(self, user_id: int, current_password: str,
                               new_password: str, ip_address: str = None,
-                              user_agent: str = None) -> Dict[str, Any]:
+                              user_agent: str = None, username: str = None, **kwargs) -> Dict[str, Any]:
         """Change user password with explicit logging."""
-        user = await self._get_or_404(User, user_id)
+        stmt = select(User).where(User.id == user_id).options(selectinload(User.assigned_warehouse))
+        result = await self.db_session.execute(stmt)
+        user = result.scalars().first()
+        if not user:
+            raise NotFoundError("User", user_id)
 
         try:
             # Verify current password
@@ -152,6 +156,8 @@ class UserService(CRUDService):
                     entity_type='User',
                     entity_id=user.id,
                     action='CHANGE_PASSWORD_SUCCESS',
+                    user_id=user_id,
+                    username=username,
                     ip_address=ip_address,
                     user_agent=user_agent,
                     notes=f"User '{user.username}' changed their password successfully."
@@ -182,6 +188,8 @@ class UserService(CRUDService):
                     entity_type='User',
                     entity_id=user.id if user else None,
                     action='CHANGE_PASSWORD_FAILURE',
+                    user_id=user_id,
+                    username=username,
                     ip_address=ip_address,
                     user_agent=user_agent,
                     notes=f"Failed password change attempt for user '{user.username if user else 'unknown'}'. Reason: {str(e)}",
