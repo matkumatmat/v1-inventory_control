@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from functools import wraps
 import logging
 import uuid
+import json
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,7 +60,7 @@ def audit_log(action: str, entity_type: str):
                 if hasattr(self, 'model_class') and hasattr(self, 'response_schema'):
                     try:
                         old_entity = await self._get_or_404(self.model_class, entity_id)
-                        old_values = self.response_schema.model_validate(old_entity).model_dump()
+                        old_values = json.loads(self.response_schema.model_validate(old_entity).model_dump_json())
                     except NotFoundError:
                         # If entity not found, it will be caught in the main try-except block
                         pass
@@ -78,7 +79,9 @@ def audit_log(action: str, entity_type: str):
                             final_entity_id = result['id']
 
                         if action == 'UPDATE':
-                            new_values = result
+                            # result is a dict with datetime objects, need to serialize it for comparison and logging
+                            new_values = json.loads(self.response_schema.model_validate(result).model_dump_json())
+                            
                             # Filter to show only changed values
                             if old_values:
                                 changed_old = {k: v for k, v in old_values.items() if k in new_values and v != new_values[k]}
