@@ -45,7 +45,8 @@ async def login(
         auth_result = await service_registry.auth_service.authenticate_user(
             username=login_data.username,
             password=login_data.password,
-
+            ip_address=ip_address,
+            user_agent=user_agent,
             remember_me=login_data.remember_me
         )
         
@@ -175,11 +176,17 @@ async def change_password(
             credentials.credentials
         )
         
+        # Get client info
+        ip_address = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+
         # Change password
         result = await service_registry.user_service.change_password(
             user_id=token_data['user_id'],
             current_password=password_data['current_password'],
-            new_password=password_data['new_password']
+            new_password=password_data['new_password'],
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         
         return APIResponse.success(

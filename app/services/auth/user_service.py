@@ -114,44 +114,80 @@ class UserService(CRUDService):
         return await super().update(entity_id, data)
     
     @transactional
-    @audit_log('CHANGE_PASSWORD', 'User')
-    async def change_password(self, user_id: int, current_password: str, 
-                       new_password: str) -> Dict[str, Any]:
-        """Change user password"""
+    async def change_password(self, user_id: int, current_password: str,
+                              new_password: str, ip_address: str = None,
+                              user_agent: str = None) -> Dict[str, Any]:
+        """Change user password with explicit logging."""
         user = await self._get_or_404(User, user_id)
-        
-        # Verify current password
-        if not self._verify_password(current_password, user.password_hash):
-            raise AuthenticationError("Current password is incorrect")
-        
-        # Validate new password
-        self._validate_password_strength(new_password)
-        
-        # Check password history (prevent reuse of last 5 passwords)
-        if await self._is_password_reused(user_id, new_password):
-            raise ValidationError("Cannot reuse recent passwords")
-        
-        # Update password
-        user.password_hash = self._hash_password(new_password)
-        user.password_changed_at = datetime.utcnow()
-        user.password_expires_at = datetime.utcnow() + timedelta(days=90)
-        user.failed_login_attempts = 0
-        user.is_locked = False
-        user.locked_until = None
-        
-        # Invalidate all sessions (force re-login)
-        await self._invalidate_user_sessions(user_id)
-        
-        self._set_audit_fields(user, is_update=True)
-        
-        # Send notification
-        if self.notification_service and user.email:
-            await self.notification_service.send_password_changed_notification(
-                email=user.email,
-                username=user.username
+
+        try:
+            # Verify current password
+            if not self._verify_password(current_password, user.password_hash):
+                raise AuthenticationError("Current password is incorrect")
+
+            # Validate new password
+            self._validate_password_strength(new_password)
+
+            # Check password history
+            if await self._is_password_reused(user_id, new_password):
+                raise ValidationError("Cannot reuse recent passwords")
+
+            # Update password
+            user.password_hash = self._hash_password(new_password)
+            user.password_changed_at = datetime.utcnow()
+            user.password_expires_at = datetime.utcnow() + timedelta(days=90)
+            user.failed_login_attempts = 0
+            user.is_locked = False
+            user.locked_until = None
+
+            # Invalidate all sessions
+            await self._invalidate_user_sessions(user_id)
+
+            self._set_audit_fields(user, is_update=True)
+
+            # --- Manual Logging ---
+            # 1. Log to audit_logs
+            if self.audit_service:
+                await self.audit_service.log_action(
+                    entity_type='User',
+                    entity_id=user.id,
+                    action='CHANGE_PASSWORD_SUCCESS',
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    notes=f"User '{user.username}' changed their password successfully."
+                )
+            
+            # 2. Log to user_activities
+            await self._log_user_activity(
+                user_id=user.id,
+                activity_type='CHANGE_PASSWORD',
+                ip_address=ip_address,
+                user_agent=user_agent
             )
-        
-        return self.response_schema().dump(user)
+            # --- End Manual Logging ---
+
+            # Send notification
+            if self.notification_service and user.email:
+                await self.notification_service.send_password_changed_notification(
+                    email=user.email,
+                    username=user.username
+                )
+
+            return self.response_schema().dump(user)
+
+        except Exception as e:
+            # Log failed attempt
+            if self.audit_service:
+                 await self.audit_service.log_action(
+                    entity_type='User',
+                    entity_id=user.id if user else None,
+                    action='CHANGE_PASSWORD_FAILURE',
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    notes=f"Failed password change attempt for user '{user.username if user else 'unknown'}'. Reason: {str(e)}",
+                    severity='WARNING'
+                )
+            raise e
     
     @transactional
     @audit_log('RESET_PASSWORD', 'User')
@@ -355,6 +391,18 @@ class UserService(CRUDService):
             'by_activity_type': by_activity_type,
             'by_user': list(by_user.values())
         }
+
+    async def _log_user_activity(self, user_id: int, activity_type: str,
+                                 ip_address: str , user_agent: str ):
+        """Log user activity"""
+        activity = UserActivity(
+            user_id=user_id,
+            activity_type=activity_type,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            timestamp=datetime.utcnow()
+        )
+        self.db_session.add(activity)
     
     def _hash_password(self, password: str) -> str:
         """Hash password - simple implementation"""

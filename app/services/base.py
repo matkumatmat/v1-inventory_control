@@ -38,29 +38,53 @@ def transactional(func):
     return wrapper
 
 def audit_log(action: str, entity_type: str):
-    """Decorator untuk audit logging"""
+    """Decorator untuk audit logging yang lebih cerdas"""
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
-            start_time = datetime.utcnow()
             request_id = str(uuid.uuid4())
             
+            # Ekstrak info dari kwargs
+            ip_address = kwargs.get('ip_address')
+            user_agent = kwargs.get('user_agent')
+            username = kwargs.get('username')
+            user_id = kwargs.get('user_id')
+
             try:
                 result = await func(self, *args, **kwargs)
                 
                 # Log successful operation
                 if hasattr(self, 'audit_service') and self.audit_service:
                     entity_id = None
-                    if hasattr(result, 'id'):
-                        entity_id = result.id
-                    elif isinstance(result, dict) and 'id' in result:
-                        entity_id = result['id']
-                    
+                    final_user_id = user_id
+                    final_username = username
+
+                    # Coba dapatkan entity_id dan user_id dari hasil fungsi
+                    if result:
+                        if hasattr(result, 'id'):
+                            entity_id = result.id
+                        elif isinstance(result, dict) and 'id' in result:
+                            entity_id = result['id']
+                        
+                        # Jika hasil adalah dict dan mengandung info user, gunakan itu
+                        user_info = None
+                        if isinstance(result, dict):
+                            user_info = result.get('user')
+                        
+                        if user_info and hasattr(user_info, 'id'):
+                            final_user_id = user_info.id
+                            final_username = user_info.username
+
                     await self.audit_service.log_action(
                         entity_type=entity_type,
                         entity_id=entity_id,
                         action=action,
-                        request_id=request_id
+                        user_id=final_user_id,
+                        username=final_username,
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        request_id=request_id,
+                        severity="INFO"
                     )
                 
                 return result
@@ -68,11 +92,16 @@ def audit_log(action: str, entity_type: str):
             except Exception as e:
                 # Log failed operation
                 if hasattr(self, 'audit_service') and self.audit_service:
-                    await self.audit_service.log_error(
+                    await self.audit_service.log_action(
                         entity_type=entity_type,
-                        action=action,
-                        error=str(e),
-                        request_id=request_id
+                        action=f"{action}_FAILED",
+                        user_id=user_id,
+                        username=username,
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        notes=str(e),
+                        request_id=request_id,
+                        severity="ERROR"
                     )
                 raise
         return wrapper

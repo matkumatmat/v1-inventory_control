@@ -22,13 +22,14 @@ class AuditService(BaseService):
     
     @transactional
     async def log_action(self, entity_type: str, entity_id: Optional[int],
-                  action: str, request_id: str = None,
-                  old_values: Dict[str, Any] = None,
-                  new_values: Dict[str, Any] = None,
-                  user_id: int = None,
-                  username: str = None) -> int:
+                         action: str, request_id: str = None,
+                         old_values: Dict[str, Any] = None,
+                         new_values: Dict[str, Any] = None,
+                         user_id: int = None, username: str = None,
+                         ip_address: str = None, user_agent: str = None,
+                         notes: str = None, severity: str = "INFO") -> int:
         """Log audit action"""
-        
+
         # If user_id is not provided, try to find it by username
         if user_id is None and username:
             from ...models import User  # Avoid circular import
@@ -47,6 +48,10 @@ class AuditService(BaseService):
             request_id=request_id,
             old_values=json.dumps(old_values) if old_values else None,
             new_values=json.dumps(new_values) if new_values else None,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            notes=notes,
+            severity=severity
         )
         
         self.db_session.add(audit_log)
@@ -68,20 +73,28 @@ class AuditService(BaseService):
         )
     
     @transactional
-    async def log_security_event(self, event_type: str, username: str = None,
-                          ip_address: str = None, details: Dict[str, Any] = None) -> int:
+    async def log_security_event(self, event_type: str, user_id: int = None,
+                                 username: str = None, ip_address: str = None,
+                                 user_agent: str = None, details: Dict[str, Any] = None,
+                                 severity: str = "WARNING") -> int:
         """Log security-related events"""
-        
+
+        # Consolidate details for the notes field
+        notes_details = {
+            'reason': details.get('reason') if details else 'N/A',
+            'username_provided': username,
+        }
+
         return await self.log_action(
             entity_type='SECURITY',
-            entity_id=None,
+            entity_id=user_id,
             action=event_type,
+            user_id=user_id,
             username=username,
-            new_values={
-                'username': username,
-                'ip_address': ip_address,
-                'details': details or {}
-            }
+            ip_address=ip_address,
+            user_agent=user_agent,
+            notes=json.dumps(notes_details),
+            severity=severity
         )
     
     async def get_audit_trail(self, entity_type: str = None, entity_id: int = None,

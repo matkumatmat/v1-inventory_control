@@ -57,7 +57,7 @@ class AuthService(BaseService):
         
         # Verify password
         if not self._verify_password(password, user.password_hash):
-            await self._handle_failed_login(user, ip_address)
+            await self._handle_failed_login(user, ip_address, user_agent)
             raise AuthenticationError("Invalid username or password")
         
         # Check if user can login
@@ -325,7 +325,7 @@ class AuthService(BaseService):
             'expires_at': expires_at
         }
     
-    async def _handle_failed_login(self, user: User, ip_address: str = None):
+    async def _handle_failed_login(self, user: User, ip_address: str = None, user_agent: str = None):
         """Handle failed login attempt"""
         user.failed_login_attempts += 1
         
@@ -337,15 +337,24 @@ class AuthService(BaseService):
         self._set_audit_fields(user, is_update=True)
         
         # Log failed attempt
-        await self._log_failed_login(user.username, ip_address, 'INVALID_PASSWORD')
+        await self._log_failed_login(
+            user_id=user.id,
+            username=user.username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            reason='INVALID_PASSWORD'
+        )
     
-    async def _log_failed_login(self, username: str, ip_address: str = None, reason: str = None):
+    async def _log_failed_login(self, username: str, ip_address: str = None, reason: str = None,
+                                user_id: int = None, user_agent: str = None):
         """Log failed login attempt"""
         if self.audit_service:
             await self.audit_service.log_security_event(
                 event_type='FAILED_LOGIN',
+                user_id=user_id,
                 username=username,
                 ip_address=ip_address,
+                user_agent=user_agent,
                 details={'reason': reason}
             )
     
