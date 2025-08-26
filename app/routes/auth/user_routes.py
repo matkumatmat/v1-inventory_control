@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 
 from ...services import ServiceRegistry
 from ...schemas import UserSchema, UserCreateSchema, UserUpdateSchema
-from ...dependencies import get_service_registry
+from ...dependencies import get_service_registry, get_request_context, RequestContext
 from ...responses import APIResponse
 
 router = APIRouter()
@@ -67,7 +67,8 @@ async def get_users(
 @router.post("", response_model=Dict[str, Any])
 async def create_user(
     user_data: UserCreateSchema,
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """
     Create new user
@@ -78,7 +79,10 @@ async def create_user(
         # Check permission (implement admin check)
         # service_registry.auth_service.require_permission(current_user_id, 'admin')
         
-        user = await service_registry.user_service.create(user_data.model_dump())
+        user = await service_registry.user_service.create(
+            user_data.model_dump(),
+            **context.model_dump()
+        )
         
         return APIResponse.success(
             data=user,
@@ -115,11 +119,16 @@ async def get_user(
 async def update_user(
     user_id: int,
     user_data: UserUpdateSchema,
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """Update user"""
     try:
-        user = await service_registry.user_service.update(user_id, user_data.dict(exclude_unset=True))
+        user = await service_registry.user_service.update(
+            user_id, 
+            user_data.dict(exclude_unset=True),
+            **context.model_dump()
+        )
         
         return APIResponse.success(
             data=user,
@@ -135,11 +144,16 @@ async def update_user(
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: int,
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """Soft delete user (deactivate)"""
     try:
-        await service_registry.user_service.deactivate_user(user_id, "Deleted via API")
+        await service_registry.user_service.deactivate_user(
+            user_id, 
+            "Deleted via API",
+            **context.model_dump()
+        )
         
         return APIResponse.success(message="User deleted successfully")
         
@@ -152,11 +166,12 @@ async def delete_user(
 @router.post("/{user_id}/activate")
 async def activate_user(
     user_id: int,
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """Activate user account"""
     try:
-        user = await service_registry.user_service.activate_user(user_id)
+        user = await service_registry.user_service.activate_user(user_id, **context.model_dump())
         
         return APIResponse.success(
             data=user,
@@ -173,13 +188,15 @@ async def activate_user(
 async def deactivate_user(
     user_id: int,
     reason: Dict[str, str],
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """Deactivate user account"""
     try:
         user = await service_registry.user_service.deactivate_user(
             user_id, 
-            reason.get('reason', 'Deactivated via API')
+            reason.get('reason', 'Deactivated via API'),
+            **context.model_dump()
         )
         
         return APIResponse.success(
@@ -196,11 +213,12 @@ async def deactivate_user(
 @router.post("/{user_id}/unlock")
 async def unlock_user(
     user_id: int,
-    service_registry: ServiceRegistry = Depends(get_service_registry)
+    service_registry: ServiceRegistry = Depends(get_service_registry),
+    context: RequestContext = Depends(get_request_context)
 ):
     """Unlock user account"""
     try:
-        user = await service_registry.user_service.unlock_user(user_id)
+        user = await service_registry.user_service.unlock_user(user_id, **context.model_dump())
         
         return APIResponse.success(
             data=user,

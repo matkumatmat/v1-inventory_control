@@ -73,3 +73,24 @@ async def get_service_registry_optional(
         config=settings.dict(),
         current_user=current_user
     )
+
+from pydantic import BaseModel
+from fastapi import Request
+
+class RequestContext(BaseModel):
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+async def get_request_context(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+) -> RequestContext:
+    """Provides a context object with request and user information."""
+    return RequestContext(
+        user_id=current_user.get('user_id'),
+        username=current_user.get('username'),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get('user-agent')
+    )

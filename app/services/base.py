@@ -38,51 +38,64 @@ def transactional(func):
     return wrapper
 
 def audit_log(action: str, entity_type: str):
-    """Decorator untuk audit logging yang lebih cerdas"""
+    """Decorator for intelligent audit logging."""
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
             request_id = str(uuid.uuid4())
             
-            # Ekstrak info dari kwargs
+            # Extract context from kwargs
             ip_address = kwargs.get('ip_address')
             user_agent = kwargs.get('user_agent')
             username = kwargs.get('username')
             user_id = kwargs.get('user_id')
 
+            old_values = None
+            entity_id = None
+
+            # For UPDATE actions, capture old state before execution
+            if action == 'UPDATE' and args:
+                entity_id = args[0]
+                if hasattr(self, 'model_class') and hasattr(self, 'response_schema'):
+                    try:
+                        old_entity = await self._get_or_404(self.model_class, entity_id)
+                        old_values = self.response_schema.model_validate(old_entity).model_dump()
+                    except NotFoundError:
+                        # If entity not found, it will be caught in the main try-except block
+                        pass
+
             try:
                 result = await func(self, *args, **kwargs)
                 
-                # Log successful operation
                 if hasattr(self, 'audit_service') and self.audit_service:
-                    entity_id = None
-                    final_user_id = user_id
-                    final_username = username
+                    final_entity_id = entity_id
+                    new_values = None
 
-                    # Coba dapatkan entity_id dan user_id dari hasil fungsi
                     if result:
                         if hasattr(result, 'id'):
-                            entity_id = result.id
+                            final_entity_id = result.id
                         elif isinstance(result, dict) and 'id' in result:
-                            entity_id = result['id']
-                        
-                        # Jika hasil adalah dict dan mengandung info user, gunakan itu
-                        user_info = None
-                        if isinstance(result, dict):
-                            user_info = result.get('user')
-                        
-                        if user_info and hasattr(user_info, 'id'):
-                            final_user_id = user_info.id
-                            final_username = user_info.username
+                            final_entity_id = result['id']
+
+                        if action == 'UPDATE':
+                            new_values = result
+                            # Filter to show only changed values
+                            if old_values:
+                                changed_old = {k: v for k, v in old_values.items() if k in new_values and v != new_values[k]}
+                                changed_new = {k: v for k, v in new_values.items() if k in old_values and v != old_values[k]}
+                                old_values = changed_old
+                                new_values = changed_new
 
                     await self.audit_service.log_action(
                         entity_type=entity_type,
-                        entity_id=entity_id,
+                        entity_id=final_entity_id,
                         action=action,
-                        user_id=final_user_id,
-                        username=final_username,
+                        user_id=user_id,
+                        username=username,
                         ip_address=ip_address,
                         user_agent=user_agent,
+                        old_values=old_values,
+                        new_values=new_values,
                         request_id=request_id,
                         severity="INFO"
                     )
@@ -90,10 +103,14 @@ def audit_log(action: str, entity_type: str):
                 return result
                 
             except Exception as e:
-                # Log failed operation
                 if hasattr(self, 'audit_service') and self.audit_service:
+                    # Try to get entity_id from args if not already set
+                    if not entity_id and args and isinstance(args[0], int):
+                        entity_id = args[0]
+
                     await self.audit_service.log_action(
                         entity_type=entity_type,
+                        entity_id=entity_id,
                         action=f"{action}_FAILED",
                         user_id=user_id,
                         username=username,
@@ -272,7 +289,7 @@ class CRUDService(BaseService):
     
     @transactional
     @audit_log('CREATE', 'Entity')
-    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create(self, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Create new entity"""
         # Validate input data
         validated_data = self.create_schema.model_validate(data).model_dump()
@@ -324,7 +341,7 @@ class CRUDService(BaseService):
     
     @transactional
     @audit_log('UPDATE', 'Entity')
-    async def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update(self, entity_id: int, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Update entity"""
         # Get existing entity
         entity = await self._get_or_404(self.model_class, entity_id)
@@ -343,7 +360,7 @@ class CRUDService(BaseService):
     
     @transactional
     @audit_log('DELETE', 'Entity')
-    async def delete(self, entity_id: int) -> bool:
+    async def delete(self, entity_id: int, **kwargs) -> bool:
         """Delete entity"""
         entity = await self._get_or_404(self.model_class, entity_id)
         
@@ -358,7 +375,7 @@ class CRUDService(BaseService):
     
     @transactional
     @audit_log('ACTIVATE', 'Entity')
-    async def activate(self, entity_id: int) -> Dict[str, Any]:
+    async def activate(self, entity_id: int, **kwargs) -> Dict[str, Any]:
         """Activate entity (for soft delete support)"""
         entity = await self._get_or_404(self.model_class, entity_id)
         

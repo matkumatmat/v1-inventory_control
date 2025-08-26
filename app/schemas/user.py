@@ -61,20 +61,20 @@ class UserSchema(BaseSchema, TimestampMixin):
     
     @field_validator('username')
     def username_length(cls,v):
-        if not 3 <= len(v) <= 50:
+        if not 3 <= len(v) <= 20:
             raise ValueError('username must be between 3 and 50 characters')
         return v
     
     @field_validator('user_id')
     def user_id_length(cls,v):
-        if not 1 <= len(v) <= 20:
+        if not 1 <= len(v) <= 10:
             raise ValueError('user id must be between 1 and 20 characters')
         return v
     
     @field_validator('first_name', 'last_name', 'position', 'timezone')
     def name_fields_length(cls,v):
-        if v and not 1 <= len(v) <= 50:
-            raise ValueError('name fields must be between 1 and 50 characters')
+        if v and not 1 <= len(v) <= 20:
+            raise ValueError('name fields must be between 1 and 20 characters')
         return v
         
     @field_validator('emergency_contact')

@@ -33,7 +33,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('CREATE', 'User')
-    async def create(self, user_data: Union[Dict[str, Any], UserCreateSchema]) -> User:
+    async def create(self, user_data: Union[Dict[str, Any], UserCreateSchema], **kwargs) -> User:
         """
         Create user dengan validation.
         This method defensively handles either a dictionary or a Pydantic model.
@@ -89,7 +89,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('UPDATE', 'User')
-    async def update(self, entity_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update(self, entity_id: int, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Update user dengan validation"""
         user = await self._get_or_404(User, entity_id)
         
@@ -111,7 +111,7 @@ class UserService(CRUDService):
         if 'password' in data:
             del data['password']
         
-        return await super().update(entity_id, data)
+        return await super().update(entity_id, data, **kwargs)
     
     @transactional
     async def change_password(self, user_id: int, current_password: str,
@@ -191,7 +191,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('RESET_PASSWORD', 'User')
-    async def reset_password(self, username_or_email: str) -> bool:
+    async def reset_password(self, username_or_email: str, **kwargs) -> bool:
         """Initiate password reset"""
         stmt = select(User).where(
             or_(User.username == username_or_email, User.email == username_or_email)
@@ -223,7 +223,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('CONFIRM_RESET', 'User')
-    async def confirm_password_reset(self, reset_token: str, new_password: str) -> Dict[str, Any]:
+    async def confirm_password_reset(self, reset_token: str, new_password: str, **kwargs) -> Dict[str, Any]:
         """Confirm password reset dengan token"""
         stmt = select(User).where(
             and_(
@@ -259,7 +259,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('ACTIVATE', 'User')
-    async def activate_user(self, user_id: int) -> Dict[str, Any]:
+    async def activate_user(self, user_id: int, **kwargs) -> Dict[str, Any]:
         """Activate user account"""
         user = await self._get_or_404(User, user_id)
         
@@ -272,7 +272,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('DEACTIVATE', 'User')
-    async def deactivate_user(self, user_id: int, reason: str = None) -> Dict[str, Any]:
+    async def deactivate_user(self, user_id: int, reason: str = None, **kwargs) -> Dict[str, Any]:
         """Deactivate user account"""
         user = await self._get_or_404(User, user_id)
         
@@ -292,7 +292,7 @@ class UserService(CRUDService):
     
     @transactional
     @audit_log('UNLOCK', 'User')
-    async def unlock_user(self, user_id: int) -> Dict[str, Any]:
+    async def unlock_user(self, user_id: int, **kwargs) -> Dict[str, Any]:
         """Unlock user account"""
         user = await self._get_or_404(User, user_id)
         
