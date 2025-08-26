@@ -43,7 +43,7 @@ async def get_users(
             filters['is_active'] = is_active
         
         # Get users
-        result = await service_registry.user_service.get_user_profile(
+        result = await service_registry.user_service.list(
             page=page,
             per_page=per_page,
             search=search,
@@ -52,9 +52,9 @@ async def get_users(
         
         return APIResponse.paginated(
             data=result['items'],
-            total=result['total'],
-            page=page,
-            per_page=per_page,
+            total=result['pagination']['total'],
+            page=result['pagination']['page'],
+            per_page=result['pagination']['per_page'],
             message="Users retrieved successfully"
         )
         

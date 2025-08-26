@@ -275,7 +275,7 @@ class CRUDService(BaseService):
     async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create new entity"""
         # Validate input data
-        validated_data = self.create_schema().load(data)
+        validated_data = self.create_schema.model_validate(data).model_dump()
         
         # Create entity
         entity = self.model_class(**validated_data)
@@ -285,17 +285,17 @@ class CRUDService(BaseService):
         await self.db_session.flush()  # Get ID
         
         # Return serialized entity
-        return self.response_schema().dump(entity)
+        return self.response_schema.model_validate(entity).model_dump()
     
     async def get_by_id(self, entity_id: int) -> Dict[str, Any]:
         """Get entity by ID"""
         entity = await self._get_or_404(self.model_class, entity_id)
-        return self.response_schema().dump(entity)
+        return self.response_schema.model_validate(entity).model_dump()
     
     async def get_by_public_id(self, public_id: str) -> Dict[str, Any]:
         """Get entity by public_id"""
         entity = await self._get_by_public_id_or_404(self.model_class, public_id)
-        return self.response_schema().dump(entity)
+        return self.response_schema.model_validate(entity).model_dump()
     
     async def list(self, page: int = 1, per_page: int = 20, search: str = None,
              filters: Dict[str, Any] = None, sort_by: str = None, 
@@ -318,7 +318,7 @@ class CRUDService(BaseService):
         result = await self._paginate_query(query, page, per_page)
         
         return {
-            'items': self.response_schema(many=True).dump(result['items']),
+            'items': [self.response_schema.model_validate(item).model_dump() for item in result['items']],
             'pagination': result['pagination']
         }
     
@@ -330,7 +330,7 @@ class CRUDService(BaseService):
         entity = await self._get_or_404(self.model_class, entity_id)
         
         # Validate input data
-        validated_data = self.update_schema().load(data)
+        validated_data = self.update_schema.model_validate(data).model_dump(exclude_unset=True)
         
         # Update entity
         for key, value in validated_data.items():
@@ -339,7 +339,7 @@ class CRUDService(BaseService):
         self._set_audit_fields(entity, is_update=True)
         
         # Return serialized entity
-        return self.response_schema().dump(entity)
+        return self.response_schema.model_validate(entity).model_dump()
     
     @transactional
     @audit_log('DELETE', 'Entity')
@@ -365,6 +365,8 @@ class CRUDService(BaseService):
         if hasattr(entity, 'is_active'):
             entity.is_active = True
             self._set_audit_fields(entity, is_update=True)
-            return self.response_schema().dump(entity)
+            return self.response_schema.model_validate(entity).model_dump()
         else:
             raise ValidationError("Entity does not support activation")
+        
+        

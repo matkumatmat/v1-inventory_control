@@ -173,7 +173,7 @@ class UserService(CRUDService):
                     username=user.username
                 )
 
-            return self.response_schema().dump(user)
+            return self.response_schema.model_validate(user).model_dump()
 
         except Exception as e:
             # Log failed attempt
@@ -255,7 +255,7 @@ class UserService(CRUDService):
         
         self._set_audit_fields(user, is_update=True)
         
-        return self.response_schema().dump(user)
+        return self.response_schema.model_validate(user).model_dump()
     
     @transactional
     @audit_log('ACTIVATE', 'User')
@@ -268,7 +268,7 @@ class UserService(CRUDService):
         user.activated_by = self.current_user
         self._set_audit_fields(user, is_update=True)
         
-        return self.response_schema().dump(user)
+        return self.response_schema.model_validate(user).model_dump()
     
     @transactional
     @audit_log('DEACTIVATE', 'User')
@@ -288,7 +288,7 @@ class UserService(CRUDService):
         
         self._set_audit_fields(user, is_update=True)
         
-        return self.response_schema().dump(user)
+        return self.response_schema.model_validate(user).model_dump()
     
     @transactional
     @audit_log('UNLOCK', 'User')
@@ -301,7 +301,7 @@ class UserService(CRUDService):
         user.failed_login_attempts = 0
         self._set_audit_fields(user, is_update=True)
         
-        return self.response_schema().dump(user)
+        return self.response_schema.model_validate(user).model_dump()
     
     async def get_user_profile(self, user_id: int) -> Dict[str, Any]:
         """Get user profile with additional info"""
@@ -325,7 +325,7 @@ class UserService(CRUDService):
         result_sessions = await self.db_session.execute(stmt_sessions)
         active_sessions = result_sessions.scalar_one()
         
-        user_data = self.response_schema().dump(user)
+        user_data = self.response_schema.model_validate(user).model_dump()
         user_data.update({
             'recent_activities': [
                 {
@@ -352,7 +352,7 @@ class UserService(CRUDService):
         result = await self.db_session.execute(stmt)
         users = result.scalars().all()
         
-        return self.response_schema(many=True).dump(users)
+        return [self.response_schema.model_validate(user).model_dump() for user in users]
     
     async def get_user_activity_report(self, user_id: int = None, 
                                start_date: datetime = None,
