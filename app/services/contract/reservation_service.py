@@ -7,8 +7,8 @@ Service untuk Contract Reservation management
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, func, select
 
 from ..base import CRUDService, transactional, audit_log
 from ..exceptions import ValidationError, BusinessRuleError, ContractError, NotFoundError
@@ -23,26 +23,26 @@ class ContractReservationService(CRUDService):
     update_schema = ContractReservationUpdateSchema
     response_schema = ContractReservationSchema
     
-    def __init__(self, db_session: Session, current_user: str = None,
+    def __init__(self, db_session: AsyncSession, current_user: str = None,
                  audit_service=None, notification_service=None, allocation_service=None):
         super().__init__(db_session, current_user, audit_service, notification_service)
         self.allocation_service = allocation_service
     
     @transactional
     @audit_log('CREATE', 'ContractReservation')
-    def create_reservation(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_reservation(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create contract reservation dengan business logic"""
         # Validate contract exists dan active
-        contract = self._validate_contract(data['contract_id'])
+        contract = await self._validate_contract(data['contract_id'])
         
         # Validate product exists
-        product = self._get_or_404(Product, data['product_id'])
+        product = await self._get_or_404(Product, data['product_id'])
         
         # Validate batch exists dan available
-        batch = self._validate_batch_for_reservation(data['batch_id'])
+        batch = await self._validate_batch_for_reservation(data['batch_id'])
         
         # Validate allocation exists
-        allocation = self._get_or_404(Allocation, data['allocation_id'])
+        allocation = await self._get_or_404(Allocation, data['allocation_id'])
         
         # Validate allocation belongs to same batch/product
         if allocation.batch_id != data['batch_id']:
@@ -59,12 +59,15 @@ class ContractReservationService(CRUDService):
             )
         
         # Check for existing reservation for same allocation
-        existing_reservation = self.db_session.query(ContractReservation).filter(
-            and_(
-                ContractReservation.contract_id == data['contract_id'],
-                ContractReservation.allocation_id == data['allocation_id']
+        result = await self.db_session.execute(
+            select(ContractReservation).filter(
+                and_(
+                    ContractReservation.contract_id == data['contract_id'],
+                    ContractReservation.allocation_id == data['allocation_id']
+                )
             )
-        ).first()
+        )
+        existing_reservation = result.scalars().first()
         
         if existing_reservation:
             raise BusinessRuleError("Allocation already reserved for this contract")
@@ -74,7 +77,7 @@ class ContractReservationService(CRUDService):
         data['allocated_quantity'] = 0
         
         # Create reservation
-        reservation_data = super().create(data)
+        reservation_data = await super().create(data)
         
         # Update allocation to mark as reserved for tender
         allocation.original_reserved_quantity = (allocation.original_reserved_quantity or 0) + reserved_qty
@@ -82,7 +85,7 @@ class ContractReservationService(CRUDService):
         self._set_audit_fields(allocation, is_update=True)
         
         # Send notification
-        self._send_notification('CONTRACT_RESERVATION_CREATED', ['admin', 'sales_team'], {
+        await self._send_notification('CONTRACT_RESERVATION_CREATED', ['admin', 'sales_team'], {
             'reservation_id': reservation_data['id'],
             'contract_number': contract.contract_number,
             'product_name': product.name,
@@ -93,9 +96,9 @@ class ContractReservationService(CRUDService):
     
     @transactional
     @audit_log('UPDATE', 'ContractReservation')
-    def update_reservation(self, reservation_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_reservation(self, reservation_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update reservation dengan validation"""
-        reservation = self._get_or_404(ContractReservation, reservation_id)
+        reservation = await self._get_or_404(ContractReservation, reservation_id)
         
         # Validate quantity changes
         if 'reserved_quantity' in data:
@@ -110,14 +113,14 @@ class ContractReservationService(CRUDService):
             # Update remaining quantity
             data['remaining_quantity'] = new_reserved_qty - reservation.allocated_quantity
         
-        return super().update(reservation_id, data)
+        return await super().update(reservation_id, data)
     
     @transactional
     @audit_log('ALLOCATE', 'ContractReservation')
-    def allocate_from_reservation(self, reservation_id: int, quantity: int,
+    async def allocate_from_reservation(self, reservation_id: int, quantity: int,
                                 customer_id: int) -> Dict[str, Any]:
         """Allocate quantity dari contract reservation ke customer"""
-        reservation = self._get_or_404(ContractReservation, reservation_id)
+        reservation = await self._get_or_404(ContractReservation, reservation_id)
         
         # Validate allocation quantity
         if quantity > reservation.remaining_quantity:
@@ -127,7 +130,7 @@ class ContractReservationService(CRUDService):
             )
         
         # Validate contract is still active
-        contract = self._get_or_404(TenderContract, reservation.contract_id)
+        contract = await self._get_or_404(TenderContract, reservation.contract_id)
         if contract.status != 'ACTIVE':
             raise ContractError(f"Contract {contract.contract_number} is not active")
         
@@ -143,7 +146,7 @@ class ContractReservationService(CRUDService):
                 'original_reserved_quantity': quantity
             }
             
-            new_allocation = self.allocation_service.create_allocation(allocation_data)
+            new_allocation = await self.allocation_service.create_allocation(allocation_data)
             
             # Update reservation quantities
             reservation.allocated_quantity += quantity
@@ -151,7 +154,7 @@ class ContractReservationService(CRUDService):
             self._set_audit_fields(reservation, is_update=True)
             
             # Send notification
-            self._send_notification('CONTRACT_ALLOCATION_CREATED', ['admin', 'sales_team'], {
+            await self._send_notification('CONTRACT_ALLOCATION_CREATED', ['admin', 'sales_team'], {
                 'allocation_id': new_allocation['id'],
                 'contract_number': contract.contract_number,
                 'customer_id': customer_id,
@@ -167,9 +170,9 @@ class ContractReservationService(CRUDService):
     
     @transactional
     @audit_log('RELEASE', 'ContractReservation')
-    def release_reservation(self, reservation_id: int, quantity: int = None) -> Dict[str, Any]:
+    async def release_reservation(self, reservation_id: int, quantity: int = None) -> Dict[str, Any]:
         """Release reservation (partial atau full)"""
-        reservation = self._get_or_404(ContractReservation, reservation_id)
+        reservation = await self._get_or_404(ContractReservation, reservation_id)
         
         release_qty = quantity or reservation.remaining_quantity
         
@@ -177,11 +180,11 @@ class ContractReservationService(CRUDService):
             raise BusinessRuleError(f"Cannot release {release_qty}. Only {reservation.remaining_quantity} available")
         
         # Update reservation
-        original_allocation = self._get_or_404(Allocation, reservation.allocation_id)
+        original_allocation = await self._get_or_404(Allocation, reservation.allocation_id)
         
         # Release from original allocation
         if self.allocation_service:
-            self.allocation_service.release_reservation(reservation.allocation_id, release_qty)
+            await self.allocation_service.release_reservation(reservation.allocation_id, release_qty)
         
         # Update reservation quantities
         reservation.reserved_quantity -= release_qty
@@ -195,63 +198,65 @@ class ContractReservationService(CRUDService):
         
         return self.response_schema().dump(reservation)
     
-    def get_contract_reservations(self, contract_id: int) -> List[Dict[str, Any]]:
+    async def get_contract_reservations(self, contract_id: int) -> List[Dict[str, Any]]:
         """Get all reservations untuk contract"""
-        reservations = self.db_session.query(ContractReservation).filter(
-            ContractReservation.contract_id == contract_id
-        ).all()
+        result = await self.db_session.execute(
+            select(ContractReservation).filter(ContractReservation.contract_id == contract_id)
+        )
+        reservations = result.scalars().all()
         
         return self.response_schema(many=True).dump(reservations)
     
-    def get_product_reservations(self, product_id: int, 
+    async def get_product_reservations(self, product_id: int, 
                                include_allocated: bool = True) -> List[Dict[str, Any]]:
         """Get all reservations untuk product"""
-        query = self.db_session.query(ContractReservation).filter(
-            ContractReservation.product_id == product_id
-        )
+        query = select(ContractReservation).filter(ContractReservation.product_id == product_id)
         
         if not include_allocated:
             query = query.filter(ContractReservation.remaining_quantity > 0)
         
-        reservations = query.all()
+        result = await self.db_session.execute(query)
+        reservations = result.scalars().all()
         return self.response_schema(many=True).dump(reservations)
     
-    def get_available_reservations_for_customer(self, customer_id: int) -> List[Dict[str, Any]]:
+    async def get_available_reservations_for_customer(self, customer_id: int) -> List[Dict[str, Any]]:
         """Get available reservations yang bisa dialokasikan ke customer"""
         # This would depend on business rules about which customers
         # can access which tender contracts
         
-        query = self.db_session.query(ContractReservation).join(TenderContract).filter(
+        query = select(ContractReservation).join(TenderContract).filter(
             and_(
                 TenderContract.status == 'ACTIVE',
                 ContractReservation.remaining_quantity > 0
             )
         )
         
-        reservations = query.all()
+        result = await self.db_session.execute(query)
+        reservations = result.scalars().all()
         
         # Filter based on customer eligibility (implement based on business rules)
         # For now, return all available reservations
         
-        result = []
+        output = []
         for reservation in reservations:
             reservation_data = self.response_schema().dump(reservation)
             reservation_data['contract'] = {
                 'contract_number': reservation.contract.contract_number,
                 'end_date': reservation.contract.end_date.isoformat() if reservation.contract.end_date else None
             }
-            result.append(reservation_data)
+            output.append(reservation_data)
         
-        return result
+        return output
     
-    def get_reservation_utilization_report(self, contract_id: int = None) -> Dict[str, Any]:
+    async def get_reservation_utilization_report(self, contract_id: int = None) -> Dict[str, Any]:
         """Get reservation utilization report"""
-        query = self.db_session.query(ContractReservation)
+        query = select(ContractReservation)
         
         if contract_id:
             query = query.filter(ContractReservation.contract_id == contract_id)
         
-        reservations = query.all()
+        result = await self.db_session.execute(query)
+        reservations = result.scalars().all()
         
         total_reserved = sum(res.reserved_quantity for res in reservations)
         total_allocated = sum(res.allocated_quantity for res in reservations)
@@ -295,9 +300,9 @@ class ContractReservationService(CRUDService):
             'by_contract': list(by_contract.values())
         }
     
-    def _validate_contract(self, contract_id: int) -> TenderContract:
+    async def _validate_contract(self, contract_id: int) -> TenderContract:
         """Validate contract exists dan can accept reservations"""
-        contract = self._get_or_404(TenderContract, contract_id)
+        contract = await self._get_or_404(TenderContract, contract_id)
         
         if contract.status != 'ACTIVE':
             raise ContractError(f"Contract {contract.contract_number} is not active")
@@ -307,9 +312,9 @@ class ContractReservationService(CRUDService):
         
         return contract
     
-    def _validate_batch_for_reservation(self, batch_id: int) -> Batch:
+    async def _validate_batch_for_reservation(self, batch_id: int) -> Batch:
         """Validate batch can be reserved"""
-        batch = self._get_or_404(Batch, batch_id)
+        batch = await self._get_or_404(Batch, batch_id)
         
         if batch.status != 'ACTIVE':
             raise ValidationError(f"Batch {batch.batch_number} is not active")

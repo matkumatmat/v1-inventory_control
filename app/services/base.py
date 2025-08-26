@@ -13,7 +13,7 @@ import logging
 import uuid
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from .exceptions import WMSException, ValidationError, NotFoundError, ConflictError
@@ -110,7 +110,7 @@ def audit_log(action: str, entity_type: str):
 class BaseService(ABC):
     """Base service class dengan common functionality"""
     
-    def __init__(self, db_session: Session, current_user: str = None, 
+    def __init__(self, db_session: AsyncSession, current_user: str = None, 
                  audit_service=None, notification_service=None):
         self.db_session = db_session
         self.current_user = current_user
