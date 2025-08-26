@@ -43,7 +43,7 @@ async def get_users(
             filters['is_active'] = is_active
         
         # Get users
-        result = await service_registry.user_service.get_all(
+        result = await service_registry.user_service.get_user_profile(
             page=page,
             per_page=per_page,
             search=search,
