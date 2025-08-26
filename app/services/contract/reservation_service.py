@@ -210,12 +210,12 @@ class ContractReservationService(CRUDService):
     async def get_product_reservations(self, product_id: int, 
                                include_allocated: bool = True) -> List[Dict[str, Any]]:
         """Get all reservations untuk product"""
-        query = select(ContractReservation).filter(ContractReservation.product_id == product_id)
+        stmt = select(ContractReservation).filter(ContractReservation.product_id == product_id)
         
         if not include_allocated:
-            query = query.filter(ContractReservation.remaining_quantity > 0)
+            stmt = stmt.filter(ContractReservation.remaining_quantity > 0)
         
-        result = await self.db_session.execute(query)
+        result = await self.db_session.execute(stmt)
         reservations = result.scalars().all()
         return self.response_schema(many=True).dump(reservations)
     
@@ -224,14 +224,14 @@ class ContractReservationService(CRUDService):
         # This would depend on business rules about which customers
         # can access which tender contracts
         
-        query = select(ContractReservation).join(TenderContract).filter(
+        stmt = select(ContractReservation).join(TenderContract).filter(
             and_(
                 TenderContract.status == 'ACTIVE',
                 ContractReservation.remaining_quantity > 0
             )
         )
         
-        result = await self.db_session.execute(query)
+        result = await self.db_session.execute(stmt)
         reservations = result.scalars().all()
         
         # Filter based on customer eligibility (implement based on business rules)
@@ -250,12 +250,12 @@ class ContractReservationService(CRUDService):
     
     async def get_reservation_utilization_report(self, contract_id: int = None) -> Dict[str, Any]:
         """Get reservation utilization report"""
-        query = select(ContractReservation)
+        stmt = select(ContractReservation)
         
         if contract_id:
-            query = query.filter(ContractReservation.contract_id == contract_id)
+            stmt = stmt.filter(ContractReservation.contract_id == contract_id)
         
-        result = await self.db_session.execute(query)
+        result = await self.db_session.execute(stmt)
         reservations = result.scalars().all()
         
         total_reserved = sum(res.reserved_quantity for res in reservations)

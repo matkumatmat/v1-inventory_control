@@ -188,17 +188,17 @@ class TenderContractService(CRUDService):
     async def get_active_contracts(self, include_expiring: bool = True, 
                            days_ahead: int = 30) -> List[Dict[str, Any]]:
         """Get active contracts"""
-        query = select(TenderContract).filter(TenderContract.status == 'ACTIVE')
+        stmt = select(TenderContract).filter(TenderContract.status == 'ACTIVE')
         
         if not include_expiring:
             cutoff_date = date.today() + timedelta(days=days_ahead)
-            query = query.filter(
+            stmt = stmt.filter(
                 or_(TenderContract.end_date.is_(None), TenderContract.end_date > cutoff_date)
             )
         
-        query = query.order_by(TenderContract.end_date.asc())
+        stmt = stmt.order_by(TenderContract.end_date.asc())
         
-        result = await self.db_session.execute(query)
+        result = await self.db_session.execute(stmt)
         contracts = result.scalars().all()
         
         # Add computed fields
@@ -223,7 +223,7 @@ class TenderContractService(CRUDService):
         """Get contracts yang akan expire"""
         cutoff_date = date.today() + timedelta(days=days_ahead)
         
-        query = select(TenderContract).filter(
+        stmt = select(TenderContract).filter(
             and_(
                 TenderContract.status == 'ACTIVE',
                 TenderContract.end_date <= cutoff_date,
@@ -231,7 +231,7 @@ class TenderContractService(CRUDService):
             )
         ).order_by(TenderContract.end_date.asc())
         
-        result = await self.db_session.execute(query)
+        result = await self.db_session.execute(stmt)
         contracts = result.scalars().all()
         
         output = []

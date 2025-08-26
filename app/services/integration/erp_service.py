@@ -9,7 +9,8 @@ import requests
 import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from ..base import BaseService, transactional, audit_log
 from ..exceptions import ERPIntegrationError, ValidationError
@@ -18,7 +19,7 @@ from ...models import ERPSyncLog, Product, Customer, SalesOrder
 class ERPService(BaseService):
     """CRITICAL SERVICE untuk ERP Integration"""
     
-    def __init__(self, db_session: Session, erp_base_url: str, api_key: str,
+    def __init__(self, db_session: AsyncSession, erp_base_url: str, api_key: str,
                  current_user: str = None, audit_service=None, notification_service=None):
         super().__init__(db_session, current_user, audit_service, notification_service)
         self.erp_base_url = erp_base_url.rstrip('/')
@@ -27,7 +28,7 @@ class ERPService(BaseService):
     
     @transactional
     @audit_log('SYNC_PRODUCTS', 'ERPSync')
-    def sync_products_from_erp(self) -> Dict[str, Any]:
+    async def sync_products_from_erp(self) -> Dict[str, Any]:
         """Sync products dari ERP system"""
         try:
             # Call ERP API
@@ -40,7 +41,7 @@ class ERPService(BaseService):
             
             for erp_product in erp_products:
                 try:
-                    self._sync_single_product(erp_product)
+                    await self._sync_single_product(erp_product)
                     synced_count += 1
                 except Exception as e:
                     error_count += 1
@@ -50,7 +51,7 @@ class ERPService(BaseService):
                     })
             
             # Log sync result
-            self._log_sync_operation('PRODUCT_SYNC', 'SUCCESS', {
+            await self._log_sync_operation('PRODUCT_SYNC', 'SUCCESS', {
                 'synced_count': synced_count,
                 'error_count': error_count,
                 'total_products': len(erp_products)
@@ -64,12 +65,12 @@ class ERPService(BaseService):
             }
             
         except Exception as e:
-            self._log_sync_operation('PRODUCT_SYNC', 'ERROR', {'error': str(e)})
+            await self._log_sync_operation('PRODUCT_SYNC', 'ERROR', {'error': str(e)})
             raise ERPIntegrationError(f"Failed to sync products: {str(e)}")
     
     @transactional
     @audit_log('SYNC_CUSTOMERS', 'ERPSync')
-    def sync_customers_from_erp(self) -> Dict[str, Any]:
+    async def sync_customers_from_erp(self) -> Dict[str, Any]:
         """Sync customers dari ERP system"""
         try:
             response = self._make_erp_request('GET', '/api/customers')
@@ -81,7 +82,7 @@ class ERPService(BaseService):
             
             for erp_customer in erp_customers:
                 try:
-                    self._sync_single_customer(erp_customer)
+                    await self._sync_single_customer(erp_customer)
                     synced_count += 1
                 except Exception as e:
                     error_count += 1
@@ -90,7 +91,7 @@ class ERPService(BaseService):
                         'error': str(e)
                     })
             
-            self._log_sync_operation('CUSTOMER_SYNC', 'SUCCESS', {
+            await self._log_sync_operation('CUSTOMER_SYNC', 'SUCCESS', {
                 'synced_count': synced_count,
                 'error_count': error_count,
                 'total_customers': len(erp_customers)
@@ -104,12 +105,12 @@ class ERPService(BaseService):
             }
             
         except Exception as e:
-            self._log_sync_operation('CUSTOMER_SYNC', 'ERROR', {'error': str(e)})
+            await self._log_sync_operation('CUSTOMER_SYNC', 'ERROR', {'error': str(e)})
             raise ERPIntegrationError(f"Failed to sync customers: {str(e)}")
     
     @transactional
     @audit_log('SYNC_SALES_ORDERS', 'ERPSync')
-    def sync_sales_orders_from_erp(self, start_date: date = None) -> Dict[str, Any]:
+    async def sync_sales_orders_from_erp(self, start_date: date = None) -> Dict[str, Any]:
         """Sync sales orders dari ERP system"""
         try:
             params = {}
@@ -125,7 +126,7 @@ class ERPService(BaseService):
             
             for erp_order in erp_orders:
                 try:
-                    self._sync_single_sales_order(erp_order)
+                    await self._sync_single_sales_order(erp_order)
                     synced_count += 1
                 except Exception as e:
                     error_count += 1
@@ -134,7 +135,7 @@ class ERPService(BaseService):
                         'error': str(e)
                     })
             
-            self._log_sync_operation('SALES_ORDER_SYNC', 'SUCCESS', {
+            await self._log_sync_operation('SALES_ORDER_SYNC', 'SUCCESS', {
                 'synced_count': synced_count,
                 'error_count': error_count,
                 'total_orders': len(erp_orders)
@@ -148,14 +149,14 @@ class ERPService(BaseService):
             }
             
         except Exception as e:
-            self._log_sync_operation('SALES_ORDER_SYNC', 'ERROR', {'error': str(e)})
+            await self._log_sync_operation('SALES_ORDER_SYNC', 'ERROR', {'error': str(e)})
             raise ERPIntegrationError(f"Failed to sync sales orders: {str(e)}")
     
-    def send_shipment_confirmation_to_erp(self, shipment_id: int) -> bool:
+    async def send_shipment_confirmation_to_erp(self, shipment_id: int) -> bool:
         """Send shipment confirmation ke ERP"""
         try:
             from ...models import Shipment
-            shipment = self._get_or_404(Shipment, shipment_id)
+            shipment = await self._get_or_404(Shipment, shipment_id)
             
             payload = {
                 'shipment_number': shipment.shipment_number,
@@ -167,7 +168,7 @@ class ERPService(BaseService):
             
             response = self._make_erp_request('POST', '/api/shipment-confirmations', data=payload)
             
-            self._log_sync_operation('SHIPMENT_CONFIRMATION', 'SUCCESS', {
+            await self._log_sync_operation('SHIPMENT_CONFIRMATION', 'SUCCESS', {
                 'shipment_id': shipment_id,
                 'erp_response': response
             })
@@ -175,16 +176,16 @@ class ERPService(BaseService):
             return True
             
         except Exception as e:
-            self._log_sync_operation('SHIPMENT_CONFIRMATION', 'ERROR', {
+            await self._log_sync_operation('SHIPMENT_CONFIRMATION', 'ERROR', {
                 'shipment_id': shipment_id,
                 'error': str(e)
             })
             return False
     
-    def send_inventory_update_to_erp(self, product_id: int, new_quantity: int) -> bool:
+    async def send_inventory_update_to_erp(self, product_id: int, new_quantity: int) -> bool:
         """Send inventory update ke ERP"""
         try:
-            product = self._get_or_404(Product, product_id)
+            product = await self._get_or_404(Product, product_id)
             
             payload = {
                 'product_code': product.product_code,
@@ -194,7 +195,7 @@ class ERPService(BaseService):
             
             response = self._make_erp_request('POST', '/api/inventory-updates', data=payload)
             
-            self._log_sync_operation('INVENTORY_UPDATE', 'SUCCESS', {
+            await self._log_sync_operation('INVENTORY_UPDATE', 'SUCCESS', {
                 'product_id': product_id,
                 'quantity': new_quantity,
                 'erp_response': response
@@ -203,7 +204,7 @@ class ERPService(BaseService):
             return True
             
         except Exception as e:
-            self._log_sync_operation('INVENTORY_UPDATE', 'ERROR', {
+            await self._log_sync_operation('INVENTORY_UPDATE', 'ERROR', {
                 'product_id': product_id,
                 'error': str(e)
             })
@@ -221,7 +222,12 @@ class ERPService(BaseService):
     def _make_erp_request(self, method: str, endpoint: str, 
                          data: Dict[str, Any] = None, 
                          params: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Make HTTP request ke ERP system"""
+        """
+        Make HTTP request ke ERP system.
+        NOTE: This method uses the synchronous `requests` library. For a fully
+        asynchronous service, this should be replaced with an async HTTP client
+        like `httpx` or `aiohttp`.
+        """
         url = f"{self.erp_base_url}{endpoint}"
         
         headers = {
@@ -256,16 +262,17 @@ class ERPService(BaseService):
         except requests.exceptions.RequestException as e:
             raise ERPIntegrationError(f"ERP API request failed: {str(e)}")
     
-    def _sync_single_product(self, erp_product: Dict[str, Any]):
+    async def _sync_single_product(self, erp_product: Dict[str, Any]):
         """Sync single product dari ERP"""
         product_code = erp_product.get('code')
         if not product_code:
             raise ValidationError("Product code is required")
         
         # Check if product exists
-        existing_product = self.db_session.query(Product).filter(
-            Product.product_code == product_code
-        ).first()
+        result = await self.db_session.execute(
+            select(Product).filter(Product.product_code == product_code)
+        )
+        existing_product = result.scalars().first()
         
         # Map ERP data to WMS format
         product_data = {
@@ -291,18 +298,19 @@ class ERPService(BaseService):
             self._set_audit_fields(new_product)
             self.db_session.add(new_product)
         
-        self.db_session.flush()
+        await self.db_session.flush()
     
-    def _sync_single_customer(self, erp_customer: Dict[str, Any]):
+    async def _sync_single_customer(self, erp_customer: Dict[str, Any]):
         """Sync single customer dari ERP"""
         customer_code = erp_customer.get('code')
         if not customer_code:
             raise ValidationError("Customer code is required")
         
         # Check if customer exists
-        existing_customer = self.db_session.query(Customer).filter(
-            Customer.customer_code == customer_code
-        ).first()
+        result = await self.db_session.execute(
+            select(Customer).filter(Customer.customer_code == customer_code)
+        )
+        existing_customer = result.scalars().first()
         
         # Map ERP data to WMS format
         customer_data = {
@@ -327,18 +335,19 @@ class ERPService(BaseService):
             self._set_audit_fields(new_customer)
             self.db_session.add(new_customer)
         
-        self.db_session.flush()
+        await self.db_session.flush()
     
-    def _sync_single_sales_order(self, erp_order: Dict[str, Any]):
+    async def _sync_single_sales_order(self, erp_order: Dict[str, Any]):
         """Sync single sales order dari ERP"""
         so_number = erp_order.get('so_number')
         if not so_number:
             raise ValidationError("SO number is required")
         
         # Check if SO exists
-        existing_so = self.db_session.query(SalesOrder).filter(
-            SalesOrder.so_number == so_number
-        ).first()
+        result = await self.db_session.execute(
+            select(SalesOrder).filter(SalesOrder.so_number == so_number)
+        )
+        existing_so = result.scalars().first()
         
         if existing_so:
             # Update existing SO status if needed
@@ -371,7 +380,7 @@ class ERPService(BaseService):
         }
         return type_mapping.get(erp_type)
     
-    def _log_sync_operation(self, operation_type: str, status: str, details: Dict[str, Any]):
+    async def _log_sync_operation(self, operation_type: str, status: str, details: Dict[str, Any]):
         """Log sync operation"""
         sync_log = ERPSyncLog(
             operation_type=operation_type,
@@ -382,4 +391,4 @@ class ERPService(BaseService):
         )
         
         self.db_session.add(sync_log)
-        self.db_session.flush()
+        await self.db_session.flush()
