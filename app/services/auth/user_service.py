@@ -10,7 +10,7 @@ import secrets
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func, desc, asc
+from sqlalchemy import and_, or_, func, desc, asc, select
 
 
 from ..base import CRUDService, transactional, audit_log
@@ -193,10 +193,11 @@ class UserService(CRUDService):
     @audit_log('RESET_PASSWORD', 'User')
     async def reset_password(self, username_or_email: str) -> bool:
         """Initiate password reset"""
-        # Find user by username or email
-        user = self.db_session.query(User).filter(
+        stmt = select(User).where(
             or_(User.username == username_or_email, User.email == username_or_email)
-        ).first()
+        )
+        result = await self.db_session.execute(stmt)
+        user = result.scalars().first()
         
         if not user:
             # Don't reveal if user exists or not
@@ -224,13 +225,14 @@ class UserService(CRUDService):
     @audit_log('CONFIRM_RESET', 'User')
     async def confirm_password_reset(self, reset_token: str, new_password: str) -> Dict[str, Any]:
         """Confirm password reset dengan token"""
-        # Find user by reset token
-        user = self.db_session.query(User).filter(
+        stmt = select(User).where(
             and_(
                 User.password_reset_token == reset_token,
                 User.password_reset_expires > datetime.utcnow()
             )
-        ).first()
+        )
+        result = await self.db_session.execute(stmt)
+        user = result.scalars().first()
         
         if not user:
             raise ValidationError("Invalid or expired reset token")
@@ -306,18 +308,22 @@ class UserService(CRUDService):
         user = await self._get_or_404(User, user_id)
         
         # Get recent activities
-        recent_activities = self.db_session.query(UserActivity).filter(
+        stmt_activities = select(UserActivity).where(
             UserActivity.user_id == user_id
-        ).order_by(UserActivity.timestamp.desc()).limit(10).all()
+        ).order_by(UserActivity.timestamp.desc()).limit(10)
+        result_activities = await self.db_session.execute(stmt_activities)
+        recent_activities = result_activities.scalars().all()
         
         # Get active sessions
-        active_sessions = self.db_session.query(UserSession).filter(
+        stmt_sessions = select(func.count(UserSession.id)).where(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
             )
-        ).count()
+        )
+        result_sessions = await self.db_session.execute(stmt_sessions)
+        active_sessions = result_sessions.scalar_one()
         
         user_data = self.response_schema().dump(user)
         user_data.update({
@@ -340,9 +346,11 @@ class UserService(CRUDService):
     
     async def get_users_by_role(self, role: str) -> List[Dict[str, Any]]:
         """Get users by role"""
-        users = self.db_session.query(User).filter(
+        stmt = select(User).where(
             and_(User.role == role, User.is_active == True)
-        ).order_by(User.full_name.asc()).all()
+        ).order_by(User.full_name.asc())
+        result = await self.db_session.execute(stmt)
+        users = result.scalars().all()
         
         return self.response_schema(many=True).dump(users)
     
@@ -350,17 +358,18 @@ class UserService(CRUDService):
                                start_date: datetime = None,
                                end_date: datetime = None) -> Dict[str, Any]:
         """Get user activity report"""
-        query = self.db_session.query(UserActivity)
+        stmt = select(UserActivity)
         
         if user_id:
-            query = query.filter(UserActivity.user_id == user_id)
+            stmt = stmt.where(UserActivity.user_id == user_id)
         
         if start_date:
-            query = query.filter(UserActivity.timestamp >= start_date)
+            stmt = stmt.where(UserActivity.timestamp >= start_date)
         if end_date:
-            query = query.filter(UserActivity.timestamp <= end_date)
+            stmt = stmt.where(UserActivity.timestamp <= end_date)
         
-        activities = query.all()
+        result = await self.db_session.execute(stmt)
+        activities = result.scalars().all()
         
         # Group by activity type
         by_activity_type = {}
@@ -435,12 +444,14 @@ class UserService(CRUDService):
     
     async def _invalidate_user_sessions(self, user_id: int):
         """Invalidate all user sessions"""
-        sessions = self.db_session.query(UserSession).filter(
+        stmt = select(UserSession).where(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True
             )
-        ).all()
+        )
+        result = await self.db_session.execute(stmt)
+        sessions = result.scalars().all()
         
         for session in sessions:
             session.is_active = False
