@@ -25,7 +25,6 @@ class UserSessionService(CRUDService):
     
     async def get_active_sessions(self, user_id: int = None) -> List[Dict[str, Any]]:
         """Get active sessions"""
-        #query = self.db_session.query(UserSession).filter(
         stmt = select(UserSession).where(
             and_(
                 UserSession.is_active == True,
@@ -34,11 +33,8 @@ class UserSessionService(CRUDService):
         )
         
         if user_id:
-            #query = query.filter(UserSession.user_id == user_id)
             stmt = stmt.where(UserSession.user_id == user_id)
-
         
-        #sessions = query.order_by(UserSession.last_activity.desc()).all()
         stmt = stmt.order_by(UserSession.last_activity.desc())
         result = await self.db_session.execute(stmt)
         sessions = result.scalars().all()
@@ -48,13 +44,12 @@ class UserSessionService(CRUDService):
     @audit_log('TERMINATE_SESSION', 'UserSession')
     async def terminate_session(self, session_id: str, reason: str = 'ADMIN') -> bool:
         """Terminate specific session"""
-        #session = self.db_session.query(UserSession).filter(
-        stmt = select(UserSession).where(            
+        stmt = select(UserSession).where(
             UserSession.session_id == session_id
         )
-        
         result = await self.db_session.execute(stmt)
         session = result.scalars().first()
+        
         if not session:
             raise NotFoundError('UserSession', session_id)
         
@@ -67,8 +62,7 @@ class UserSessionService(CRUDService):
     @audit_log('CLEANUP_SESSIONS', 'UserSession')
     async def cleanup_expired_sessions(self) -> int:
         """Cleanup expired sessions"""
-        #expired_sessions = self.db_session.query(UserSession).filter(
-        stmt = select(UserSession).where(    
+        stmt = select(UserSession).where(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at <= datetime.utcnow()
@@ -88,33 +82,29 @@ class UserSessionService(CRUDService):
     async def get_session_statistics(self) -> Dict[str, Any]:
         """Get session statistics"""
         # Active sessions
-        #active_sessions = self.db_session.query(UserSession).filter(
-        active_stmt = select(func.count(UserSession.id)).where(    
+        active_stmt = select(func.count(UserSession.id)).where(
             and_(
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
             )
         )
-        active_sessions_result =  await self.db_session.execute(active_stmt)
-        active_sessions_result = active_sessions_result.scalar_one()
+        active_sessions_result = await self.db_session.execute(active_stmt)
+        active_sessions = active_sessions_result.scalar_one()
+        
         # Sessions today
         today = datetime.utcnow().date()
         today_stmt = select(func.count(UserSession.id)).where(
-        #sessions_today = self.db_session.query(UserSession).filter(
             func.date(UserSession.created_at) == today
         )
-
         sessions_today_result = await self.db_session.execute(today_stmt)
         sessions_today = sessions_today_result.scalar_one()
-
         
         # Unique users today
-        #unique_users_today = self.db_session.query(UserSession.user_id).filter(
         unique_users_stmt = select(func.count(func.distinct(UserSession.user_id))).where(
             func.date(UserSession.created_at) == today
         )
-        unique_user_today_result = await self.db_session.execute(unique_users_stmt)
-        unique_users_today = unique_user_today_result.scalar_one()
+        unique_users_today_result = await self.db_session.execute(unique_users_stmt)
+        unique_users_today = unique_users_today_result.scalar_one()
         
         return {
             'active_sessions': active_sessions,
