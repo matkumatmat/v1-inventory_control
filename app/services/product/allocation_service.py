@@ -8,8 +8,8 @@ Menangani FIFO/FEFO, Tender vs Regular allocation, Stock reservation
 
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, date, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func, desc, asc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_, func, desc, asc, select
 from enum import Enum
 
 from ..base import CRUDService, transactional, audit_log
@@ -39,7 +39,7 @@ class AllocationService(CRUDService):
     response_schema = AllocationSchema
     search_fields = ['allocation_number']
     
-    def __init__(self, db_session: Session, current_user: str = None,
+    def __init__(self, db_session: AsyncSession, current_user: str = None,
                  audit_service=None, notification_service=None, 
                  movement_service=None, rack_service=None):
         super().__init__(db_session, current_user, audit_service, notification_service)
@@ -48,19 +48,19 @@ class AllocationService(CRUDService):
     
     @transactional
     @audit_log('CREATE', 'Allocation')
-    def create_allocation(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_allocation(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create allocation dengan business logic validation"""
         # Validate batch exists dan available
-        batch = self._validate_batch_for_allocation(data['batch_id'])
+        batch = await self._validate_batch_for_allocation(data['batch_id'])
         
         # Validate allocation type
-        allocation_type = self._validate_allocation_type(data['allocation_type_id'])
+        allocation_type = await self._validate_allocation_type(data['allocation_type_id'])
         
         # Validate customer requirement
-        self._validate_customer_requirement(allocation_type, data.get('customer_id'))
+        await self._validate_customer_requirement(allocation_type, data.get('customer_id'))
         
         # Check stock availability
-        available_qty = self._get_available_stock(batch.id)
+        available_qty = await self._get_available_stock(batch.id)
         requested_qty = data['allocated_quantity']
         
         if available_qty < requested_qty:
@@ -72,30 +72,30 @@ class AllocationService(CRUDService):
             )
         
         # Generate allocation number
-        data['allocation_number'] = self._generate_allocation_number(allocation_type.code)
+        data['allocation_number'] = await self._generate_allocation_number(allocation_type.code)
         
         # Set expiry date from batch
         if batch.expiry_date:
             data['expiry_date'] = batch.expiry_date
         
         # Create allocation
-        allocation_data = super().create(data)
+        allocation_data = await super().create(data)
         allocation_id = allocation_data['id']
         
         # Handle different allocation types
         if allocation_type.code == 'TENDER':
-            self._handle_tender_allocation(allocation_id, data)
+            await self._handle_tender_allocation(allocation_id, data)
         
         # Create stock movement record
         if self.movement_service:
-            self.movement_service.create_allocation_movement(
+            await self.movement_service.create_allocation_movement(
                 allocation_id=allocation_id,
                 quantity=requested_qty,
                 movement_type='ALLOCATE'
             )
         
         # Send notification
-        self._send_notification('ALLOCATION_CREATED', ['warehouse_team'], {
+        await self._send_notification('ALLOCATION_CREATED', ['warehouse_team'], {
             'allocation_id': allocation_id,
             'allocation_number': data['allocation_number'],
             'product_name': batch.product.name,
@@ -106,21 +106,21 @@ class AllocationService(CRUDService):
     
     @transactional
     @audit_log('AUTO_ALLOCATE', 'Allocation')
-    def auto_allocate_by_strategy(self, product_id: int, quantity: int, 
+    async def auto_allocate_by_strategy(self, product_id: int, quantity: int, 
                                  allocation_type_id: int, customer_id: int = None,
                                  strategy: AllocationStrategy = AllocationStrategy.FEFO,
                                  specific_batch_id: int = None) -> List[Dict[str, Any]]:
         """Auto allocate stock dengan strategy tertentu"""
         
         # Validate input
-        product = self._get_or_404(Product, product_id)
-        allocation_type = self._validate_allocation_type(allocation_type_id)
+        product = await self._get_or_404(Product, product_id)
+        allocation_type = await self._validate_allocation_type(allocation_type_id)
         
         if customer_id:
-            customer = self._get_or_404(Customer, customer_id)
+            customer = await self._get_or_404(Customer, customer_id)
         
         # Get available batches berdasarkan strategy
-        available_batches = self._get_available_batches_by_strategy(
+        available_batches = await self._get_available_batches_by_strategy(
             product_id, strategy, specific_batch_id
         )
         
@@ -151,7 +151,7 @@ class AllocationService(CRUDService):
                 'allocation_date': date.today()
             }
             
-            allocation = self.create_allocation(allocation_data)
+            allocation = await self.create_allocation(allocation_data)
             allocations.append(allocation)
             
             remaining_qty -= allocate_qty
@@ -160,9 +160,9 @@ class AllocationService(CRUDService):
     
     @transactional
     @audit_log('RESERVE', 'Allocation')
-    def reserve_for_picking(self, allocation_id: int, quantity: int) -> Dict[str, Any]:
+    async def reserve_for_picking(self, allocation_id: int, quantity: int) -> Dict[str, Any]:
         """Reserve quantity untuk picking process"""
-        allocation = self._get_or_404(Allocation, allocation_id)
+        allocation = await self._get_or_404(Allocation, allocation_id)
         
         # Validate reservation
         max_reservable = allocation.allocated_quantity - allocation.shipped_quantity
@@ -178,7 +178,7 @@ class AllocationService(CRUDService):
         
         # Create movement record
         if self.movement_service:
-            self.movement_service.create_movement(
+            await self.movement_service.create_movement(
                 allocation_id=allocation_id,
                 movement_type_code='RESERVE',
                 quantity=quantity,
@@ -189,9 +189,9 @@ class AllocationService(CRUDService):
     
     @transactional
     @audit_log('RELEASE', 'Allocation')
-    def release_reservation(self, allocation_id: int, quantity: int) -> Dict[str, Any]:
+    async def release_reservation(self, allocation_id: int, quantity: int) -> Dict[str, Any]:
         """Release reserved quantity"""
-        allocation = self._get_or_404(Allocation, allocation_id)
+        allocation = await self._get_or_404(Allocation, allocation_id)
         
         if allocation.reserved_quantity < quantity:
             raise AllocationError(
@@ -205,7 +205,7 @@ class AllocationService(CRUDService):
         
         # Create movement record
         if self.movement_service:
-            self.movement_service.create_movement(
+            await self.movement_service.create_movement(
                 allocation_id=allocation_id,
                 movement_type_code='RELEASE',
                 quantity=-quantity,  # Negative untuk release
@@ -216,10 +216,10 @@ class AllocationService(CRUDService):
     
     @transactional
     @audit_log('SHIP', 'Allocation')
-    def ship_allocation(self, allocation_id: int, quantity: int, 
+    async def ship_allocation(self, allocation_id: int, quantity: int, 
                        reference_type: str = None, reference_id: int = None) -> Dict[str, Any]:
         """Mark allocation as shipped"""
-        allocation = self._get_or_404(Allocation, allocation_id)
+        allocation = await self._get_or_404(Allocation, allocation_id)
         
         # Validate shipment
         max_shippable = allocation.allocated_quantity - allocation.shipped_quantity
@@ -247,7 +247,7 @@ class AllocationService(CRUDService):
         
         # Create movement record
         if self.movement_service:
-            self.movement_service.create_movement(
+            await self.movement_service.create_movement(
                 allocation_id=allocation_id,
                 movement_type_code='SHIP',
                 quantity=quantity,
@@ -257,17 +257,18 @@ class AllocationService(CRUDService):
         
         # Update tender contract if applicable
         if allocation.tender_contract_id:
-            self._update_contract_allocation(allocation, quantity)
+            await self._update_contract_allocation(allocation, quantity)
         
         return self.response_schema().dump(allocation)
     
-    def get_allocation_summary_by_product(self, product_id: int) -> Dict[str, Any]:
+    async def get_allocation_summary_by_product(self, product_id: int) -> Dict[str, Any]:
         """Get allocation summary untuk product"""
-        query = self.db.query(Allocation).join(Batch).filter(
+        query = select(Allocation).join(Batch).filter(
             and_(Batch.product_id == product_id, Allocation.status == 'active')
         )
         
-        allocations = query.all()
+        result = await self.db_session.execute(query)
+        allocations = result.scalars().all()
         
         summary = {
             'product_id': product_id,
@@ -312,32 +313,34 @@ class AllocationService(CRUDService):
         
         return summary
     
-    def get_customer_allocations(self, customer_id: int, 
+    async def get_customer_allocations(self, customer_id: int, 
                                include_shipped: bool = False) -> List[Dict[str, Any]]:
         """Get all allocations untuk customer"""
-        query = self.db.query(Allocation).filter(Allocation.customer_id == customer_id)
+        query = select(Allocation).filter(Allocation.customer_id == customer_id)
         
         if not include_shipped:
             query = query.filter(Allocation.status != 'shipped')
         
         query = query.order_by(Allocation.allocation_date.desc())
         
-        allocations = query.all()
+        result = await self.db_session.execute(query)
+        allocations = result.scalars().all()
         return self.response_schema(many=True).dump(allocations)
     
-    def get_tender_allocations(self, contract_id: int) -> List[Dict[str, Any]]:
+    async def get_tender_allocations(self, contract_id: int) -> List[Dict[str, Any]]:
         """Get all allocations untuk tender contract"""
-        query = self.db.query(Allocation).filter(
+        query = select(Allocation).filter(
             Allocation.tender_contract_id == contract_id
         ).order_by(Allocation.allocation_date.desc())
         
-        allocations = query.all()
+        result = await self.db_session.execute(query)
+        allocations = result.scalars().all()
         return self.response_schema(many=True).dump(allocations)
     
-    def transfer_allocation(self, allocation_id: int, target_customer_id: int,
+    async def transfer_allocation(self, allocation_id: int, target_customer_id: int,
                           quantity: int = None) -> Dict[str, Any]:
         """Transfer allocation ke customer lain (untuk tender)"""
-        allocation = self._get_or_404(Allocation, allocation_id)
+        allocation = await self._get_or_404(Allocation, allocation_id)
         
         # Validate transfer rules
         if allocation.allocation_type.code != 'TENDER':
@@ -346,7 +349,7 @@ class AllocationService(CRUDService):
         if allocation.shipped_quantity > 0:
             raise AllocationError("Cannot transfer allocation that has been shipped")
         
-        target_customer = self._get_or_404(Customer, target_customer_id)
+        target_customer = await self._get_or_404(Customer, target_customer_id)
         
         transfer_qty = quantity or allocation.allocated_quantity
         
@@ -364,7 +367,7 @@ class AllocationService(CRUDService):
             'original_reserved_quantity': allocation.original_reserved_quantity
         }
         
-        new_allocation = self.create_allocation(new_allocation_data)
+        new_allocation = await self.create_allocation(new_allocation_data)
         
         # Update original allocation
         if transfer_qty >= allocation.allocated_quantity:
@@ -383,9 +386,9 @@ class AllocationService(CRUDService):
     
     # ==================== PRIVATE METHODS ====================
     
-    def _validate_batch_for_allocation(self, batch_id: int) -> Batch:
+    async def _validate_batch_for_allocation(self, batch_id: int) -> Batch:
         """Validate batch dapat digunakan untuk allocation"""
-        batch = self._get_or_404(Batch, batch_id)
+        batch = await self._get_or_404(Batch, batch_id)
         
         if batch.status != 'ACTIVE':
             raise ValidationError(f"Batch {batch.batch_number} is not active")
@@ -398,46 +401,47 @@ class AllocationService(CRUDService):
         
         return batch
     
-    def _validate_allocation_type(self, allocation_type_id: int) -> AllocationType:
+    async def _validate_allocation_type(self, allocation_type_id: int) -> AllocationType:
         """Validate allocation type exists dan active"""
-        allocation_type = self._get_or_404(AllocationType, allocation_type_id)
+        allocation_type = await self._get_or_404(AllocationType, allocation_type_id)
         
         if not allocation_type.is_active:
             raise ValidationError(f"Allocation type {allocation_type.name} is not active")
         
         return allocation_type
     
-    def _validate_customer_requirement(self, allocation_type: AllocationType, customer_id: Optional[int]):
+    async def _validate_customer_requirement(self, allocation_type: AllocationType, customer_id: Optional[int]):
         """Validate customer requirement berdasarkan allocation type"""
         if allocation_type.requires_customer and not customer_id:
             raise ValidationError(f"Allocation type {allocation_type.name} requires customer")
         
         if customer_id:
-            customer = self._get_or_404(Customer, customer_id)
+            customer = await self._get_or_404(Customer, customer_id)
             if not customer.is_active:
                 raise ValidationError(f"Customer {customer.name} is not active")
     
-    def _get_available_stock(self, batch_id: int) -> int:
+    async def _get_available_stock(self, batch_id: int) -> int:
         """Calculate available stock untuk batch"""
-        batch = self._get_or_404(Batch, batch_id)
+        batch = await self._get_or_404(Batch, batch_id)
         
         # Calculate total allocated
-        total_allocated = self.db.query(
-            func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)
-        ).filter(
-            and_(Allocation.batch_id == batch_id, Allocation.status == 'active')
-        ).scalar() or 0
+        result = await self.db_session.execute(
+            select(func.sum(Allocation.allocated_quantity - Allocation.shipped_quantity)).filter(
+                and_(Allocation.batch_id == batch_id, Allocation.status == 'active')
+            )
+        )
+        total_allocated = result.scalar() or 0
         
         return batch.received_quantity - total_allocated
     
-    def _get_available_batches_by_strategy(self, product_id: int, 
+    async def _get_available_batches_by_strategy(self, product_id: int, 
                                          strategy: AllocationStrategy,
                                          specific_batch_id: int = None) -> List[Dict[str, Any]]:
         """Get available batches berdasarkan allocation strategy"""
         
         if strategy == AllocationStrategy.SPECIFIC and specific_batch_id:
-            batch = self._get_or_404(Batch, specific_batch_id)
-            available_qty = self._get_available_stock(specific_batch_id)
+            batch = await self._get_or_404(Batch, specific_batch_id)
+            available_qty = await self._get_available_stock(specific_batch_id)
             if available_qty > 0:
                 batch_data = self.response_schema().dump(batch)
                 batch_data['available_quantity'] = available_qty
@@ -445,7 +449,7 @@ class AllocationService(CRUDService):
             return []
         
         # Get all available batches for product
-        query = self.db.query(Batch).filter(
+        query = select(Batch).filter(
             and_(
                 Batch.product_id == product_id,
                 Batch.status == 'ACTIVE',
@@ -461,28 +465,32 @@ class AllocationService(CRUDService):
         elif strategy == AllocationStrategy.LIFO:
             query = query.order_by(Batch.received_date.desc())
         
-        batches = query.all()
+        result = await self.db_session.execute(query)
+        batches = result.scalars().all()
         
         # Calculate available quantity for each batch
-        result = []
+        output = []
         for batch in batches:
-            available_qty = self._get_available_stock(batch.id)
+            available_qty = await self._get_available_stock(batch.id)
             if available_qty > 0:
                 batch_data = self.response_schema().dump(batch)
                 batch_data['available_quantity'] = available_qty
-                result.append(batch_data)
+                output.append(batch_data)
         
-        return result
+        return output
     
-    def _generate_allocation_number(self, allocation_type_code: str) -> str:
+    async def _generate_allocation_number(self, allocation_type_code: str) -> str:
         """Generate unique allocation number"""
         today = date.today()
         prefix = f"AL{allocation_type_code[:2]}{today.strftime('%y%m%d')}"
         
         # Get next sequence number
-        last_allocation = self.db.query(Allocation).filter(
-            Allocation.allocation_number.like(f"{prefix}%")
-        ).order_by(Allocation.id.desc()).first()
+        result = await self.db_session.execute(
+            select(Allocation).filter(
+                Allocation.allocation_number.like(f"{prefix}%")
+            ).order_by(Allocation.id.desc())
+        )
+        last_allocation = result.scalars().first()
         
         if last_allocation:
             last_seq = int(last_allocation.allocation_number[-4:])
@@ -492,24 +500,27 @@ class AllocationService(CRUDService):
         
         return f"{prefix}{next_seq:04d}"
     
-    def _handle_tender_allocation(self, allocation_id: int, data: Dict[str, Any]):
+    async def _handle_tender_allocation(self, allocation_id: int, data: Dict[str, Any]):
         """Handle special logic untuk tender allocations"""
         tender_contract_id = data.get('tender_contract_id')
         if not tender_contract_id:
             return
         
         # Validate contract exists dan active
-        contract = self._get_or_404(TenderContract, tender_contract_id)
+        contract = await self._get_or_404(TenderContract, tender_contract_id)
         if contract.status != 'ACTIVE':
             raise ContractError(f"Contract {contract.contract_number} is not active")
         
         # Update contract reservation
-        reservation = self.db.query(ContractReservation).filter(
-            and_(
-                ContractReservation.contract_id == tender_contract_id,
-                ContractReservation.allocation_id == allocation_id
+        result = await self.db_session.execute(
+            select(ContractReservation).filter(
+                and_(
+                    ContractReservation.contract_id == tender_contract_id,
+                    ContractReservation.allocation_id == allocation_id
+                )
             )
-        ).first()
+        )
+        reservation = result.scalars().first()
         
         if reservation:
             allocated_qty = data['allocated_quantity']
@@ -519,17 +530,20 @@ class AllocationService(CRUDService):
             if reservation.remaining_quantity < 0:
                 raise ContractError("Allocation exceeds contract reservation")
     
-    def _update_contract_allocation(self, allocation: Allocation, shipped_qty: int):
+    async def _update_contract_allocation(self, allocation: Allocation, shipped_qty: int):
         """Update contract allocation ketika shipment"""
         if not allocation.tender_contract_id:
             return
         
-        reservation = self.db.query(ContractReservation).filter(
-            and_(
-                ContractReservation.contract_id == allocation.tender_contract_id,
-                ContractReservation.allocation_id == allocation.id
+        result = await self.db_session.execute(
+            select(ContractReservation).filter(
+                and_(
+                    ContractReservation.contract_id == allocation.tender_contract_id,
+                    ContractReservation.allocation_id == allocation.id
+                )
             )
-        ).first()
+        )
+        reservation = result.scalars().first()
         
         if reservation:
             # This would update the contract reservation status

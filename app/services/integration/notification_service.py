@@ -5,13 +5,14 @@ Notification Service
 Service untuk Email, SMS, dan In-app notifications
 """
 
+import asyncio
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from jinja2 import Template
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..base import BaseService, transactional
 from ..exceptions import ExternalServiceError
@@ -20,31 +21,31 @@ from ...models import NotificationLog
 class NotificationService(BaseService):
     """Service untuk Notification management"""
     
-    def __init__(self, db_session: Session, email_config: Dict[str, Any],
+    def __init__(self, db_session: AsyncSession, email_config: Dict[str, Any],
                  current_user: str = None, audit_service=None):
         super().__init__(db_session, current_user, audit_service)
         self.email_config = email_config
         self.email_templates = self._load_email_templates()
     
     @transactional
-    def send_notification(self, notification_type: str, recipients: List[str],
+    async def send_notification(self, notification_type: str, recipients: List[str],
                          context: Dict[str, Any], channel: str = 'email') -> bool:
         """Send notification through specified channel"""
         try:
             if channel == 'email':
-                return self._send_email_notification(notification_type, recipients, context)
+                return await self._send_email_notification(notification_type, recipients, context)
             elif channel == 'sms':
-                return self._send_sms_notification(notification_type, recipients, context)
+                return await self._send_sms_notification(notification_type, recipients, context)
             elif channel == 'push':
-                return self._send_push_notification(notification_type, recipients, context)
+                return await self._send_push_notification(notification_type, recipients, context)
             else:
                 raise ValueError(f"Unsupported notification channel: {channel}")
                 
         except Exception as e:
-            self._log_notification(notification_type, recipients, 'FAILED', str(e))
+            await self._log_notification(notification_type, recipients, 'FAILED', str(e))
             return False
     
-    def send_welcome_email(self, email: str, username: str, full_name: str) -> bool:
+    async def send_welcome_email(self, email: str, username: str, full_name: str) -> bool:
         """Send welcome email to new user"""
         context = {
             'username': username,
@@ -52,9 +53,9 @@ class NotificationService(BaseService):
             'login_url': f"{self.email_config.get('app_url', '')}/login"
         }
         
-        return self.send_notification('USER_WELCOME', [email], context, 'email')
+        return await self.send_notification('USER_WELCOME', [email], context, 'email')
     
-    def send_password_reset_email(self, email: str, username: str, reset_token: str) -> bool:
+    async def send_password_reset_email(self, email: str, username: str, reset_token: str) -> bool:
         """Send password reset email"""
         context = {
             'username': username,
@@ -62,18 +63,18 @@ class NotificationService(BaseService):
             'expires_in_hours': 24
         }
         
-        return self.send_notification('PASSWORD_RESET', [email], context, 'email')
+        return await self.send_notification('PASSWORD_RESET', [email], context, 'email')
     
-    def send_password_changed_notification(self, email: str, username: str) -> bool:
+    async def send_password_changed_notification(self, email: str, username: str) -> bool:
         """Send password changed notification"""
         context = {
             'username': username,
             'changed_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
         }
         
-        return self.send_notification('PASSWORD_CHANGED', [email], context, 'email')
+        return await self.send_notification('PASSWORD_CHANGED', [email], context, 'email')
     
-    def send_low_stock_alert(self, recipients: List[str], products: List[Dict[str, Any]]) -> bool:
+    async def send_low_stock_alert(self, recipients: List[str], products: List[Dict[str, Any]]) -> bool:
         """Send low stock alert"""
         context = {
             'products': products,
@@ -81,9 +82,9 @@ class NotificationService(BaseService):
             'dashboard_url': f"{self.email_config.get('app_url', '')}/dashboard"
         }
         
-        return self.send_notification('LOW_STOCK_ALERT', recipients, context, 'email')
+        return await self.send_notification('LOW_STOCK_ALERT', recipients, context, 'email')
     
-    def send_expiry_alert(self, recipients: List[str], batches: List[Dict[str, Any]]) -> bool:
+    async def send_expiry_alert(self, recipients: List[str], batches: List[Dict[str, Any]]) -> bool:
         """Send expiry alert"""
         context = {
             'batches': batches,
@@ -91,85 +92,67 @@ class NotificationService(BaseService):
             'dashboard_url': f"{self.email_config.get('app_url', '')}/dashboard"
         }
         
-        return self.send_notification('EXPIRY_ALERT', recipients, context, 'email')
+        return await self.send_notification('EXPIRY_ALERT', recipients, context, 'email')
     
-    def _send_email_notification(self, notification_type: str, recipients: List[str],
-                               context: Dict[str, Any]) -> bool:
-        """Send email notification"""
+    async def _send_email_notification(self, notification_type: str, recipients: List[str],
+                                     context: Dict[str, Any]) -> bool:
+        """Send email notification using asyncio.to_thread"""
         try:
-            # Get email template
             template_config = self.email_templates.get(notification_type)
             if not template_config:
                 raise ValueError(f"Email template not found for: {notification_type}")
+
+            subject = Template(template_config['subject']).render(**context)
+            body = Template(template_config['body']).render(**context)
+
+            def send_mail():
+                msg = MIMEMultipart()
+                msg['From'] = self.email_config['smtp_from']
+                msg['Subject'] = subject
+                msg.attach(MIMEText(body, 'html'))
+
+                with smtplib.SMTP(self.email_config['smtp_host'], self.email_config['smtp_port']) as server:
+                    if self.email_config.get('smtp_use_tls'):
+                        server.starttls()
+                    if self.email_config.get('smtp_username'):
+                        server.login(self.email_config['smtp_username'], self.email_config['smtp_password'])
+                    
+                    for recipient in recipients:
+                        msg_copy = msg
+                        msg_copy['To'] = recipient
+                        server.send_message(msg_copy)
+
+            await asyncio.to_thread(send_mail)
             
-            # Render email content
-            subject_template = Template(template_config['subject'])
-            body_template = Template(template_config['body'])
-            
-            subject = subject_template.render(**context)
-            body = body_template.render(**context)
-            
-            # Create email message
-            msg = MIMEMultipart()
-            msg['From'] = self.email_config['smtp_from']
-            msg['Subject'] = subject
-            
-            # Add HTML body
-            msg.attach(MIMEText(body, 'html'))
-            
-            # Send to each recipient
-            smtp_server = smtplib.SMTP(
-                self.email_config['smtp_host'],
-                self.email_config['smtp_port']
-            )
-            
-            if self.email_config.get('smtp_use_tls'):
-                smtp_server.starttls()
-            
-            if self.email_config.get('smtp_username'):
-                smtp_server.login(
-                    self.email_config['smtp_username'],
-                    self.email_config['smtp_password']
-                )
-            
-            for recipient in recipients:
-                msg['To'] = recipient
-                smtp_server.send_message(msg)
-                del msg['To']  # Remove To header for next iteration
-            
-            smtp_server.quit()
-            
-            # Log success
-            self._log_notification(notification_type, recipients, 'SUCCESS')
-            
+            await self._log_notification(notification_type, recipients, 'SUCCESS')
             return True
             
         except Exception as e:
             raise ExternalServiceError('EMAIL', f"Failed to send email: {str(e)}")
     
-    def _send_sms_notification(self, notification_type: str, recipients: List[str],
+    async def _send_sms_notification(self, notification_type: str, recipients: List[str],
                              context: Dict[str, Any]) -> bool:
         """Send SMS notification - placeholder implementation"""
         # This would integrate with SMS provider like Twilio, AWS SNS, etc.
         try:
             # Log as if sent successfully
-            self._log_notification(notification_type, recipients, 'SUCCESS', 'SMS sent via provider')
+            await self._log_notification(notification_type, recipients, 'SUCCESS', 'SMS sent via provider')
             return True
         except Exception as e:
             raise ExternalServiceError('SMS', f"Failed to send SMS: {str(e)}")
     
-    def _send_push_notification(self, notification_type: str, recipients: List[str],
+    async def _send_push_notification(self, notification_type: str, recipients: List[str],
                               context: Dict[str, Any]) -> bool:
         """Send push notification - placeholder implementation"""
         # This would integrate with push notification service like Firebase, etc.
         try:
             # Log as if sent successfully
-            self._log_notification(notification_type, recipients, 'SUCCESS', 'Push sent via provider')
+            await self._log_notification(notification_type, recipients, 'SUCCESS', 'Push sent via provider')
             return True
         except Exception as e:
             raise ExternalServiceError('PUSH', f"Failed to send push notification: {str(e)}")
     
-    def _log_notification(self, notification_type: str, recipients: List[str],
+    async def _log_notification(self, notification_type: str, recipients: List[str],
                          status: str, error_message: str = None):
         """Log notification attempt"""
         log = NotificationLog(
@@ -182,7 +165,7 @@ class NotificationService(BaseService):
         )
         
         self.db_session.add(log)
-        self.db_session.flush()
+        await self.db_session.flush()
     
     def _load_email_templates(self) -> Dict[str, Dict[str, str]]:
         """Load email templates - in production, load from database or files"""
